@@ -11,7 +11,6 @@ class LetterResponse(BaseSchema):
     id: int
     title: Optional[str] = None
     content: str
-    letter_type: Optional[str] = None
     ai_love_score: int
     is_revealed: bool
     created_at: datetime
