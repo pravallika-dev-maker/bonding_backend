@@ -21,6 +21,8 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
             "relationshipDate": current_user.relationship_date.isoformat() if current_user.relationship_date else None,
             "dob": current_user.dob.isoformat() if current_user.dob else None,
             "gender": current_user.gender,
+            "partnerId": current_user.partner_id,
+            "isPartnerConnected": current_user.partner_id is not None,
         }
     }
 
