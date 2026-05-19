@@ -10,7 +10,7 @@ class MoodResponse(BaseSchema):
     id: int
     mood: str
     reflection: Optional[str] = None
-    createdAt: datetime
+    created_at: datetime
 
     class Config:
         from_attributes = True
