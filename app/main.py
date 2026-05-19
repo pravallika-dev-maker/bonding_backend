@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api.v1 import auth, users, moods, partners, separations, reflections
+from .api.v1 import auth, users, moods, partners, separations, reflections, letters
 from .database import engine, Base
-from .models import user, mood, invite_code, separation, notification, question_category, reflection_question, reflection_session, reflection_answer, reflection_comparison  # IMPORTANT: Import models to register them with Base
+from .models import user, mood, invite_code, separation, notification, question_category, reflection_question, reflection_session, reflection_answer, reflection_comparison, letter  # IMPORTANT: Import models to register them with Base
 
 
 print("--- STARTING BOOTSTRAP ---")
@@ -34,6 +34,7 @@ app.include_router(moods.router, prefix="/api/v1")
 app.include_router(partners.router, prefix="/api/v1")
 app.include_router(separations.router, prefix="/api/v1")
 app.include_router(reflections.router, prefix="/api/v1")
+app.include_router(letters.router, prefix="/api/v1")
 
 
 @app.get("/")

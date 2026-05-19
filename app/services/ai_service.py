@@ -64,3 +64,28 @@ Return ONLY JSON array: ["suggestion1", "suggestion2", "suggestion3"]"""
     except Exception as e:
         print(f"Error in Gemini AI: {e}")
         return ["Showing up every day is already progress."]
+
+
+async def evaluate_love_letter(letter_content: str) -> int:
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    prompt = f"""Read the following letter written by someone to their partner during a separation.
+Give it a 'love_score' from 0 to 100 based on how loving, constructive, forgiving, and emotionally safe it is.
+- High score (80-100): Full of love, hope, appreciation, taking responsibility, emotional warmth.
+- Medium score (40-79): Neutral, confused, or expressing hurt but willing to try.
+- Low score (0-39): Blaming, toxic, angry, manipulative, or emotionally unsafe.
+
+Letter: "{letter_content}"
+
+Return ONLY valid JSON:
+{{"love_score": 85}}"""
+    try:
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        text = response.text.strip().strip("```json").strip("```").strip()
+        data = json.loads(text)
+        return data.get("love_score", 0)
+    except Exception as e:
+        print(f"Error in Gemini AI Love Scoring: {e}")
+        return 0
