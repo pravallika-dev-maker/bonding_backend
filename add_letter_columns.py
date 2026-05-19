@@ -18,12 +18,17 @@ engine = create_engine(DATABASE_URL)
 
 with engine.connect() as conn:
     try:
-        # Add ai_love_score column if it doesn't already exist
+        # Add ai_love_score column to letters table if it doesn't exist
         conn.execute(text("""
             ALTER TABLE letters
             ADD COLUMN IF NOT EXISTS ai_love_score INTEGER DEFAULT 0;
         """))
+        # Add relationship_score column to users table if it doesn't exist
+        conn.execute(text("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS relationship_score INTEGER DEFAULT 0;
+        """))
         conn.commit()
-        print("✅ SUCCESS: ai_love_score column added to letters table!")
+        print("✅ SUCCESS: Database tables migrated successfully!")
     except Exception as e:
         print(f"❌ Error: {e}")

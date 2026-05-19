@@ -21,3 +21,4 @@ class User(Base):
     partner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     is_partnered = Column(Boolean, default=False)
     gender = Column(String, nullable=True)
+    relationship_score = Column(Integer, default=0)
