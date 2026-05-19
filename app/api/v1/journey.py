@@ -160,12 +160,14 @@ async def get_journey_score(
 
 @router.get("/insights")
 async def get_journey_insights(
+    separation_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Reveals mature AI-generated insights at the end of the separation day.
-    Checks if expected_end_date of the active separation is reached or completed.
+    Checks if expected_end_date of the active separation is reached, completed,
+    or if both partners completed all reflection days.
     """
     if not current_user.partner_id:
         raise HTTPException(
@@ -173,18 +175,25 @@ async def get_journey_insights(
             detail="You must be partnered to generate relationship insights."
         )
 
-    # 1. Fetch active separation
-    sep = db.query(Separation).filter(
-        (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
-        Separation.status == "active"
-    ).first()
-
-    if not sep:
-        # Fallback check for recently completed separation to allow viewing history
+    # 1. Fetch separation (specific ID or active or latest completed)
+    if separation_id:
+        sep = db.query(Separation).filter(
+            Separation.id == separation_id,
+            (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id)
+        ).first()
+    else:
+        # Fetch active separation first
         sep = db.query(Separation).filter(
             (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
-            Separation.status == "completed"
-        ).order_by(Separation.ended_at.desc()).first()
+            Separation.status == "active"
+        ).first()
+
+        if not sep:
+            # Fallback check for recently completed separation to allow viewing history
+            sep = db.query(Separation).filter(
+                (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
+                Separation.status == "completed"
+            ).order_by(Separation.ended_at.desc()).first()
 
     if not sep:
         return {
@@ -194,9 +203,35 @@ async def get_journey_insights(
             "insights": None
         }
 
-    # 2. Check if locked or unlocked (expected_end_date reached)
+    # 2. Retrieve partner info
+    partner = db.query(User).filter(User.id == current_user.partner_id).first()
+    partner_name = partner.user_name if (partner and partner.user_name) else "Partner"
+
+    # Count shared completed reflection days
+    shared_days = db.query(ReflectionSession.day_number).filter(
+        ReflectionSession.user_id == current_user.id,
+        ReflectionSession.is_completed == True
+    ).intersect(
+        db.query(ReflectionSession.day_number).filter(
+            ReflectionSession.user_id == partner.id,
+            ReflectionSession.is_completed == True
+        )
+    ).count()
+
+    # Calculate total expected reflection days from duration label
+    duration_label = (sep.duration_label or "").lower()
+    expected_days = 7  # default
+    if "2" in duration_label or "two" in duration_label:
+        expected_days = 14
+    elif "month" in duration_label or "30" in duration_label:
+        expected_days = 30
+
+    # Auto-unlock early if both partners completed all required reflection days
+    completed_all_reflections = (shared_days >= expected_days)
+
+    # Check if locked or unlocked
     days_remaining = (sep.expected_end_date - date.today()).days if sep.expected_end_date else 99
-    is_unlocked = (days_remaining <= 0) or (sep.status == "completed")
+    is_unlocked = (days_remaining <= 0) or (sep.status == "completed") or completed_all_reflections
 
     if not is_unlocked:
         # If locked, return the status so the vault remains visual & locked on frontend
@@ -206,10 +241,6 @@ async def get_journey_insights(
             "message": f"Your insights vault unlocks on the final day of separation ({days_remaining} days left).",
             "insights": None
         }
-
-    # 3. Retrieve partner info
-    partner = db.query(User).filter(User.id == current_user.partner_id).first()
-    partner_name = partner.user_name if (partner and partner.user_name) else "Partner"
 
     # 4. Gather Journey Data to feed Gemini
     # User reflections
