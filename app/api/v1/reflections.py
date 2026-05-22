@@ -42,7 +42,7 @@ def _get_active_separation(user: User, db: Session) -> Separation:
 
 def _day_number(sep: Separation) -> int:
     elapsed = (date.today() - sep.start_date).days
-    day = elapsed + 1          # Day 1 = the start date itself
+    day = max(1, elapsed + 1)  # Ensure day is at least 1, even with timezone shifts
     return min(day, 55)        # Cap at 55
 
 

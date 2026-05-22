@@ -250,7 +250,7 @@ async def get_journey_insights(
     
     user_ref_data = [
         {
-            "question": q.text,
+            "question": q.question_text,
             "answer": ans.text_answer,
             "emotion": ans.ai_emotion_detected,
             "tone": ans.ai_tone
@@ -264,7 +264,7 @@ async def get_journey_insights(
     
     partner_ref_data = [
         {
-            "question": q.text,
+            "question": q.question_text,
             "answer": ans.text_answer,
             "emotion": ans.ai_emotion_detected,
             "tone": ans.ai_tone
