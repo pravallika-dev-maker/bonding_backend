@@ -59,3 +59,77 @@ async def update_profile(
     db.refresh(current_user)
     
     return {"message": "Profile updated successfully", "success": True}
+
+@router.delete("/me")
+async def delete_my_account(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Permanently deletes the current user's profile and all associated data,
+    including moods, letters, reflection sessions, answers, comparisons,
+    invite codes, and separations.
+    Safely handles self-referencing and partner linkages to prevent foreign key violations.
+    """
+    uid = current_user.id
+    
+    # 1. Handle partner linkage first: find any user who has partner_id == current_user.id
+    # Nullify their partner_id and set is_partnered=False so they don't break/crash
+    partner = db.query(User).filter(User.partner_id == uid).first()
+    if partner:
+        partner.partner_id = None
+        partner.is_partnered = False
+        
+    # Nullify current user's partner_id as well before deleting
+    current_user.partner_id = None
+    db.commit()
+
+    # 2. Delete related records sequentially to avoid FK constraint errors:
+    
+    # A. Delete Invite codes
+    from ...models.invite_code import InviteCode
+    db.query(InviteCode).filter(InviteCode.creator_id == uid).delete(synchronize_session=False)
+
+    # B. Delete Notifications
+    from ...models.notification import Notification
+    db.query(Notification).filter(Notification.recipient_id == uid).delete(synchronize_session=False)
+
+    # C. Delete Moods
+    from ...models.mood import Mood
+    db.query(Mood).filter(Mood.user_id == uid).delete(synchronize_session=False)
+
+    # D. Delete Letters (where user is author OR partner)
+    from ...models.letter import Letter
+    db.query(Letter).filter((Letter.author_id == uid) | (Letter.partner_id == uid)).delete(synchronize_session=False)
+
+    # E. Delete Reflection Answers
+    from ...models.reflection_answer import ReflectionAnswer
+    db.query(ReflectionAnswer).filter(ReflectionAnswer.user_id == uid).delete(synchronize_session=False)
+
+    # F. Delete Reflection Sessions & their Comparisons
+    from ...models.reflection_session import ReflectionSession
+    from ...models.reflection_comparison import ReflectionComparison
+    
+    session_ids = [s.id for s in db.query(ReflectionSession).filter(ReflectionSession.user_id == uid).all()]
+    if session_ids:
+        db.query(ReflectionComparison).filter(
+            (ReflectionComparison.user_a_session_id.in_(session_ids)) | 
+            (ReflectionComparison.user_b_session_id.in_(session_ids))
+        ).delete(synchronize_session=False)
+        
+    db.query(ReflectionSession).filter(ReflectionSession.user_id == uid).delete(synchronize_session=False)
+
+    # G. Delete Separations & their Comparisons (by separation_id)
+    from ...models.separation import Separation
+    sep_ids = [s.id for s in db.query(Separation).filter((Separation.creator_id == uid) | (Separation.partner_id == uid)).all()]
+    if sep_ids:
+        db.query(ReflectionComparison).filter(ReflectionComparison.separation_id.in_(sep_ids)).delete(synchronize_session=False)
+        db.query(Separation).filter(Separation.id.in_(sep_ids)).delete(synchronize_session=False)
+
+    db.commit()
+
+    # 3. Finally, delete the user record itself
+    db.query(User).filter(User.id == uid).delete(synchronize_session=False)
+    db.commit()
+
+    return {"message": "Account and all associated data permanently deleted.", "success": True}
