@@ -48,6 +48,72 @@ async def analyze_answer(question_text: str, user_answer: str) -> dict:
         return {"emotion_detected": "neutral", "tone": "neutral",
                 "reaction_text": "That takes courage to share. Keep going."}
 
+async def generate_mood_insight(mood: str, reflection: str = "") -> dict:
+    """
+    Called when a user logs a mood check-in.
+    Returns a personalized emotional quote + advice based on their mood and optional reflection.
+    """
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+    reflection_context = f'\nThey also wrote: "{reflection}"' if reflection and reflection.strip() else ""
+
+    prompt = f"""You are Bonded AI — warm, emotionally intelligent, and deeply human.
+
+A person going through a relationship separation has just checked in with how they feel.
+
+Their mood right now: "{mood}"{reflection_context}
+
+Based on this, generate:
+1. A short, deeply moving emotional QUOTE (1-2 lines, poetic, original — NOT a famous quote, feel original and personal)
+2. A gentle, compassionate ADVICE (2-3 sentences) that speaks directly to someone feeling "{mood}" during a separation period
+
+The quote should feel like something written just for them in this moment.
+The advice should be warm, non-generic, emotionally aware, and gently guiding — like a wise best friend.
+
+Return ONLY valid JSON:
+{{
+  "quote": "your original emotional quote here",
+  "advice": "your personalized gentle advice here"
+}}"""
+
+    try:
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        text = response.text.strip().strip("```json").strip("```").strip()
+        data = json.loads(text)
+        return {
+            "quote": data.get("quote", ""),
+            "advice": data.get("advice", "")
+        }
+    except Exception as e:
+        print(f"Error in Gemini Mood Insight: {e}")
+        # Meaningful fallbacks per mood
+        fallbacks = {
+            "longing": {
+                "quote": "The ache of missing someone is love with nowhere to go — hold it gently.",
+                "advice": "Longing is a sign of how deeply you care. Let it remind you of what matters, not what's missing."
+            },
+            "peaceful": {
+                "quote": "Peace is not the absence of pain — it is the decision to breathe through it.",
+                "advice": "This stillness you feel is earned. Stay in it. You don't have to fix anything today."
+            },
+            "reflective": {
+                "quote": "The questions you sit with today become the clarity you carry tomorrow.",
+                "advice": "Something is surfacing within you. Trust the process of looking inward — it's where real answers live."
+            },
+            "growing": {
+                "quote": "Growth is quiet. You won't always feel it — but it's happening.",
+                "advice": "Every moment of this separation where you choose awareness over reaction is a step forward. You are becoming."
+            },
+        }
+        return fallbacks.get(mood.lower(), {
+            "quote": "Even the hardest seasons leave something beautiful behind.",
+            "advice": "Take a breath. You are doing better than you think."
+        })
+
+
 async def generate_comparison_suggestions(summary: list) -> list:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     prompt = f"""Two partners answered the same reflection question separately.
