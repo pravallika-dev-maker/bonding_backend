@@ -7,6 +7,10 @@ class LetterCreate(BaseSchema):
     content: str
     letter_type: Optional[str] = None # No longer required
 
+class LetterUpdate(BaseSchema):
+    title: Optional[str] = None
+    content: Optional[str] = None  # If content changes, AI love score is re-evaluated
+
 class LetterResponse(BaseSchema):
     id: int
     title: Optional[str] = None

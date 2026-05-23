@@ -7,7 +7,7 @@ from ..deps import get_current_user
 from ...models.user import User
 from ...models.letter import Letter
 from ...models.separation import Separation
-from ...schemas.letter import LetterCreate, LetterResponse
+from ...schemas.letter import LetterCreate, LetterUpdate, LetterResponse
 from ...services.ai_service import evaluate_love_letter
 
 router = APIRouter(prefix="/letters", tags=["Letters"])
@@ -86,3 +86,70 @@ def get_revealed_partner_letters(
     ).order_by(Letter.created_at.desc()).all()
 
     return revealed_letters
+
+
+@router.get("/{letter_id}", response_model=LetterResponse)
+def get_letter(
+    letter_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Returns a single letter by ID. Only the author can access it."""
+    letter = db.query(Letter).filter(
+        Letter.id == letter_id,
+        Letter.author_id == current_user.id
+    ).first()
+    if not letter:
+        raise HTTPException(status_code=404, detail="Letter not found")
+    return letter
+
+
+@router.patch("/{letter_id}", response_model=LetterResponse)
+async def update_letter(
+    letter_id: int,
+    update_data: LetterUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Edit a letter's title and/or content.
+    If content is changed, Gemini re-evaluates the AI love score.
+    Only the author can edit their own letter.
+    """
+    letter = db.query(Letter).filter(
+        Letter.id == letter_id,
+        Letter.author_id == current_user.id
+    ).first()
+    if not letter:
+        raise HTTPException(status_code=404, detail="Letter not found")
+
+    if update_data.title is not None:
+        letter.title = update_data.title
+
+    if update_data.content is not None:
+        letter.content = update_data.content
+        # Re-score with Gemini since content changed
+        letter.ai_love_score = await evaluate_love_letter(update_data.content)
+
+    db.commit()
+    db.refresh(letter)
+    return letter
+
+
+@router.delete("/{letter_id}")
+def delete_letter(
+    letter_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Permanently deletes a letter. Only the author can delete their own letter."""
+    letter = db.query(Letter).filter(
+        Letter.id == letter_id,
+        Letter.author_id == current_user.id
+    ).first()
+    if not letter:
+        raise HTTPException(status_code=404, detail="Letter not found")
+
+    db.delete(letter)
+    db.commit()
+    return {"success": True, "message": "Letter deleted successfully"}

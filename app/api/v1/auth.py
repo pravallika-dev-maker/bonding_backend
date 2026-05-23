@@ -4,6 +4,8 @@ from ...schemas.auth import SendCodeRequest, VerifyCodeRequest, TokenResponse
 from ...services.auth_service import AuthService
 from ...database import get_db
 from ...core import security
+from ..deps import get_current_user
+from ...models.user import User
 
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -24,7 +26,7 @@ async def verify_code(request: VerifyCodeRequest, db: Session = Depends(get_db))
     )
     
     if is_valid:
-        # Generate real JWT token
+        # Generate long-lived JWT token (10 years — valid until explicit logout)
         token = security.create_access_token(subject=request.phone_number)
         return {
             "accessToken": token,
@@ -38,3 +40,14 @@ async def verify_code(request: VerifyCodeRequest, db: Session = Depends(get_db))
     )
 
 
+@router.post("/logout")
+async def logout(current_user: User = Depends(get_current_user)):
+    """
+    Logout is stateless — JWT tokens cannot be invalidated server-side.
+    This endpoint confirms the request is authenticated and instructs the
+    client to delete the token from secure storage.
+    """
+    return {
+        "success": True,
+        "message": "Logged out successfully. Please delete your token on the client."
+    }

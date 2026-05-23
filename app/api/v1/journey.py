@@ -117,15 +117,30 @@ async def get_journey_score(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Calculates the dynamic Relationship Health Score for the current user,
-    determines their Love Word and returns it for the Journey screen.
+    Calculates the dynamic Relationship Health Score for the couple.
+    loveWord is derived from BOTH partners' combined score — it is a couple concept.
+    Also returns each partner's individual score for display.
     """
     score = calculate_user_score(db, current_user)
-    love_info = get_love_word(score)
-    
+
     # Update cached relationship_score in db silently
     current_user.relationship_score = score
     db.commit()
+
+    # ── Partner score ─────────────────────────────────────────────────────────
+    # loveWord is a COUPLE concept — derived from both partners' combined score.
+    partner_score = 0
+    partner_name = None
+    if current_user.partner_id:
+        partner = db.query(User).filter(User.id == current_user.partner_id).first()
+        if partner:
+            partner_name = partner.user_name
+            partner_score = calculate_user_score(db, partner)
+            partner.relationship_score = partner_score
+            db.commit()
+
+    couple_score = score + partner_score
+    love_info = get_love_word(couple_score)
 
     # Calculate sub-indicators (percentage 0.0 to 1.0)
     # Check-ins progress: based on reflection completions (out of 10 completions max for scale)
@@ -148,14 +163,22 @@ async def get_journey_score(
     presence_progress = min(1.0, moods_logged / 15.0)
 
     return {
+        # Couple-level — loveWord comes from BOTH partners combined
         "loveWord": love_info["loveWord"],
         "emoji": love_info["emoji"],
-        "totalScore": score,
         "message": love_info["message"],
+        "coupleScore": couple_score,
+        "statusChips": [love_info["loveWord"], "Quietly growing"],
+
+        # Individual scores (for display breakdown if needed)
+        "myScore": score,
+        "partnerScore": partner_score,
+        "partnerName": partner_name,
+
+        # Sub-indicators (your personal progress bars)
         "checkInsProgress": round(checkins_progress, 2),
         "opennessProgress": round(openness_progress, 2),
         "presenceProgress": round(presence_progress, 2),
-        "statusChips": [love_info["loveWord"], "Quietly growing"]
     }
 
 @router.get("/insights")
