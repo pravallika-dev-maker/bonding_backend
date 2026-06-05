@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy import text
 from dotenv import load_dotenv
 
 from .api.v1 import auth, users, moods, partners, separations, reflections, letters, journey, notifications
@@ -33,7 +34,6 @@ def send_daily_reflection_reminders():
     
     db = SessionLocal()
     try:
-        # Get all users with FCM tokens
         users = db.query(User).filter(User.fcm_token.isnot(None)).all()
         for user in users:
             create_notification_and_push(
@@ -52,7 +52,6 @@ def send_daily_reflection_reminders():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler = BackgroundScheduler()
-    # Trigger 8: Daily reminder at 8 PM (20:00)
     scheduler.add_job(
         send_daily_reflection_reminders,
         trigger=CronTrigger(hour=20, minute=0),
@@ -76,11 +75,19 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal Server Error"}
     )
 
+# ── Middleware (order matters: LAST added = FIRST to run) ─────────────────────
+# SlowAPI must be added BEFORE CORS so that CORS runs first on incoming requests.
+# This ensures OPTIONS preflight gets CORS headers before SlowAPI can reject it.
 app.add_middleware(SlowAPIMiddleware)
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
-allowed_origins = [o.strip() for o in allowed_origins if o.strip()]
+# CORS — added LAST so it runs FIRST.
+# For mobile-only backend: allow all origins since native apps don't send Origin headers.
+# If you add a web frontend later, set ALLOWED_ORIGINS env var to your domain(s).
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "*")
+if allowed_origins_str.strip() == "*":
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [o.strip() for o in allowed_origins_str.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -113,7 +120,7 @@ async def health_check():
     try:
         from .database import SessionLocal
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         db_status = "healthy"
     except Exception:
