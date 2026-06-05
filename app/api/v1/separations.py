@@ -5,8 +5,8 @@ from ..deps import get_current_user
 from ...models.user import User
 from ...models.separation import Separation
 from ...schemas.separation import SeparationCreate, SeparationResponse, ActiveSeparationResponse
-from ...services.notification_service import create_notification
-from datetime import datetime, date, timedelta
+from ...services.notification_service import create_notification, create_notification_and_push
+from datetime import datetime, date, timedelta, timezone
 
 router = APIRouter(prefix="/separations", tags=["Separations"])
 
@@ -50,12 +50,14 @@ def create_separation(request: SeparationCreate, current_user: User = Depends(ge
     
     # Notify partner
     if current_user.partner_id:
-        create_notification(
+        partner = db.query(User).filter(User.id == current_user.partner_id).first()
+        create_notification_and_push(
             db, 
             recipient_id=current_user.partner_id, 
             notification_type="separation_started", 
-            title=f"{current_user.user_name or 'Your partner'} has started a space", 
-            body="You're both in this together."
+            title="🌿 Space has begun", 
+            body=f"{current_user.user_name or 'Your partner'} started a separation.",
+            fcm_token=partner.fcm_token if partner else None
         )
         
     partner_name = None
@@ -151,7 +153,19 @@ def end_separation(id: int, current_user: User = Depends(get_current_user), db: 
         raise HTTPException(status_code=404, detail="Separation not found")
         
     sep.status = "completed"
-    sep.ended_at = datetime.utcnow()
+    sep.ended_at = datetime.now(timezone.utc)
     db.commit()
     
+    partner_to_notify = sep.partner_id if current_user.id == sep.creator_id else sep.creator_id
+    if partner_to_notify:
+        partner = db.query(User).filter(User.id == partner_to_notify).first()
+        create_notification_and_push(
+            db,
+            recipient_id=partner_to_notify,
+            notification_type="separation_ended",
+            title="🌅 Space has ended",
+            body=f"{current_user.user_name or 'Your partner'} ended the separation.",
+            fcm_token=partner.fcm_token if partner else None
+        )
+
     return {"success": True, "message": "Separation ended successfully"}

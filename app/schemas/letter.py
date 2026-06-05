@@ -21,3 +21,11 @@ class LetterResponse(BaseSchema):
 
     class Config:
         from_attributes = True
+
+class PartnerLetterScreenResponse(BaseSchema):
+    screen: int
+    day: int
+    prompt_title: str
+    action_label: str
+    letter: Optional[LetterResponse] = None
+

@@ -1,6 +1,9 @@
 import random
+import logging
 from sqlalchemy.orm import Session
 from ..models.user import User
+
+logger = logging.getLogger("bonded.auth")
 
 
 class AuthService:
@@ -10,20 +13,19 @@ class AuthService:
 
     @staticmethod
     async def send_sms_otp(phone_number: str, otp: str):
-        print(f"[SMS SERVICE] Sending OTP {otp} to {phone_number}")
-        # In a real app, this is where you'd call Twilio/MessageBird
+        logger.info(f"[SMS SERVICE] Sending OTP to {phone_number}")
+        # TODO: Integrate Twilio/MessageBird for production SMS delivery
         return True
 
     @staticmethod
     async def verify_otp(db: Session, phone_number: str, country_code: str, otp: str) -> bool:
-        # 1. Verification check (Master code '123456' for development)
+        # TODO: Replace with real OTP verification (Redis-backed, expiring)
         if otp != "123456":
             return False
             
-        # 2. Check if user exists, if not, create them (Auto-Registration)
         user = db.query(User).filter(User.phone_number == phone_number).first()
         if not user:
-            print(f"[AUTH] Creating new user for phone: {phone_number}")
+            logger.info(f"Creating new user for phone: {phone_number}")
             user = User(
                 phone_number=phone_number,
                 country_code=country_code,
@@ -33,7 +35,6 @@ class AuthService:
             db.commit()
             db.refresh(user)
         else:
-            print(f"[AUTH] Existing user logged in: {phone_number}")
+            logger.info(f"Existing user logged in: {phone_number}")
             
         return True
-

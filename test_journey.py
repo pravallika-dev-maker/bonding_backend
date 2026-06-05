@@ -1,7 +1,7 @@
 import asyncio
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -121,7 +121,7 @@ async def main():
             separation_id=separation.id,
             day_number=7,
             is_completed=True,
-            completed_at=datetime.utcnow()
+            completed_at=datetime.now(timezone.utc)
         )
         db.add(session_a)
         db.commit()
@@ -147,7 +147,7 @@ async def main():
             separation_id=separation.id,
             day_number=7,
             is_completed=True,
-            completed_at=datetime.utcnow()
+            completed_at=datetime.now(timezone.utc)
         )
         db.add(session_b)
         db.commit()

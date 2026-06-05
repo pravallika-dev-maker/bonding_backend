@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 from ...database import get_db
 from ...schemas.user import UserProfileUpdate
 from ...models.user import User
 from ..deps import get_current_user
+
+logger = logging.getLogger("bonded.users")
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -32,7 +35,7 @@ async def update_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    print(f"--- INCOMING PROFILE DATA: {profile_data.model_dump()} ---")
+    logger.info(f"--- INCOMING PROFILE DATA: {profile_data.model_dump()} ---")
     # Update fields if provided
     if profile_data.userName is not None:
         current_user.user_name = profile_data.userName
@@ -128,8 +131,21 @@ async def delete_my_account(
 
     db.commit()
 
-    # 3. Finally, delete the user record itself
     db.query(User).filter(User.id == uid).delete(synchronize_session=False)
     db.commit()
 
     return {"message": "Account and all associated data permanently deleted.", "success": True}
+
+from ...schemas.user import FCMTokenUpdate
+
+@router.post("/fcm-token")
+async def register_fcm_token(
+    data: FCMTokenUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    current_user.fcm_token = data.fcmToken
+    db.commit()
+    logger.info(f"Registered FCM token for user {current_user.id}: {data.fcmToken[:15]}...")
+    return {"success": True, "message": "FCM token registered successfully"}
+

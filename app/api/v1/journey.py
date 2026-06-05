@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import date, datetime
 from typing import List, Optional
@@ -12,6 +12,8 @@ from ...models.reflection_question import ReflectionQuestion
 from ...models.letter import Letter
 from ...models.mood import Mood
 from ...services.ai_service import generate_journey_insights
+from ...services.notification_service import create_notification_and_push
+import json
 
 router = APIRouter(prefix="/journey", tags=["Journey"])
 
@@ -113,6 +115,7 @@ def calculate_user_score(db: Session, user: User) -> int:
 
 @router.get("/score")
 async def get_journey_score(
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -123,6 +126,8 @@ async def get_journey_score(
     """
     score = calculate_user_score(db, current_user)
 
+    old_couple_score = current_user.relationship_score or 0
+
     # Update cached relationship_score in db silently
     current_user.relationship_score = score
     db.commit()
@@ -131,15 +136,53 @@ async def get_journey_score(
     # loveWord is a COUPLE concept — derived from both partners' combined score.
     partner_score = 0
     partner_name = None
+    old_partner_score = 0
+    partner_fcm_token = None
     if current_user.partner_id:
         partner = db.query(User).filter(User.id == current_user.partner_id).first()
         if partner:
             partner_name = partner.user_name
+            old_partner_score = partner.relationship_score or 0
             partner_score = calculate_user_score(db, partner)
             partner.relationship_score = partner_score
+            partner_fcm_token = partner.fcm_token
             db.commit()
 
+    old_total = old_couple_score + old_partner_score
     couple_score = score + partner_score
+    
+    # ── Trigger 9: Score milestone ────────────────────────────────────────────
+    milestones = [50, 150, 300, 500, 1000]
+    crossed = None
+    for m in milestones:
+        if old_total < m <= couple_score:
+            crossed = m
+            
+    if crossed:
+        title = "Love Milestone Unlocked! 🏆"
+        body = f"You and your partner just reached {crossed} points! Keep growing together."
+        
+        background_tasks.add_task(
+            create_notification_and_push,
+            db,
+            current_user.id,
+            "score_milestone",
+            title,
+            body,
+            current_user.fcm_token
+        )
+        
+        if current_user.partner_id and partner_fcm_token:
+            background_tasks.add_task(
+                create_notification_and_push,
+                db,
+                current_user.partner_id,
+                "score_milestone",
+                title,
+                body,
+                partner_fcm_token
+            )
+
     love_info = get_love_word(couple_score)
 
     # Calculate sub-indicators (percentage 0.0 to 1.0)
@@ -183,6 +226,7 @@ async def get_journey_score(
 
 @router.get("/insights")
 async def get_journey_insights(
+    background_tasks: BackgroundTasks,
     separation_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -327,8 +371,43 @@ async def get_journey_insights(
         "partner_b_letters": partner_letters
     }
 
-    # 5. Ask Gemini to generate mature, loving insights
-    insights = await generate_journey_insights(current_user.user_name or "You", partner_name, bundle_data)
+    # 5. Ask Gemini to generate mature, loving insights (only if not already generated)
+    if not sep.closing_insight:
+        insights = await generate_journey_insights(current_user.user_name or "You", partner_name, bundle_data)
+        
+        # Save to DB so we don't regenerate and don't re-trigger push
+        sep.closing_insight = json.dumps(insights)
+        db.commit()
+        
+        # Trigger 10: Journey insights generated
+        title = "✨ Your Journey Insights Are Ready"
+        body = "Your separation period is complete. Review your beautiful insights now."
+        
+        background_tasks.add_task(
+            create_notification_and_push,
+            db,
+            current_user.id,
+            "insights_ready",
+            title,
+            body,
+            current_user.fcm_token
+        )
+        
+        if partner and partner.fcm_token:
+            background_tasks.add_task(
+                create_notification_and_push,
+                db,
+                partner.id,
+                "insights_ready",
+                title,
+                body,
+                partner.fcm_token
+            )
+    else:
+        try:
+            insights = json.loads(sep.closing_insight)
+        except Exception:
+            insights = {"message": "Could not parse insights."}
 
     return {
         "isUnlocked": True,

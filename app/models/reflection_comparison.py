@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
-from datetime import datetime
+from datetime import datetime, timezone
 from ..database import Base
 
 class ReflectionComparison(Base):
@@ -15,7 +15,7 @@ class ReflectionComparison(Base):
     comparison_data = Column(JSONB, nullable=True)
     suggestions = Column(JSONB, nullable=True)
     
-    generated_at = Column(DateTime, default=datetime.utcnow)
+    generated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint('separation_id', 'day_number', name='uq_sep_day'),

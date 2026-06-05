@@ -5,7 +5,8 @@ from ..deps import get_current_user
 from ...models.user import User
 from ...models.invite_code import InviteCode
 from ...schemas.partner import InviteCodeResponse, JoinRequest, JoinResponse, PartnerMeResponse
-from datetime import datetime, timedelta
+from ...services.notification_service import create_notification, create_notification_and_push
+from datetime import datetime, timedelta, timezone
 import random
 
 router = APIRouter(prefix="/partners", tags=["Partners"])
@@ -25,7 +26,7 @@ def get_invite_code(current_user: User = Depends(get_current_user), db: Session 
         code_str = f"{random.choice(WORD_LIST)}-{random.randint(1, 9)}"
         
     # 3. Save to invite_codes table
-    expires_at = datetime.utcnow() + timedelta(hours=24)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
     new_code = InviteCode(code=code_str, creator_id=current_user.id, expires_at=expires_at)
     db.add(new_code)
     db.commit()
@@ -42,7 +43,7 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
     invite = db.query(InviteCode).filter(
         InviteCode.code == code_str, 
         InviteCode.is_used == False,
-        InviteCode.expires_at > datetime.utcnow()
+        InviteCode.expires_at > datetime.now(timezone.utc)
     ).first()
     
     # 2. If not found -> return 404 "Invalid or expired code"
@@ -74,6 +75,16 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
     # 8. Commit DB
     db.commit()
     
+    # Notify creator
+    create_notification_and_push(
+        db,
+        recipient_id=creator.id,
+        notification_type="partner_joined",
+        title=f"{current_user.user_name or 'Your partner'} joined your bond! 💕",
+        body="You are now connected.",
+        fcm_token=creator.fcm_token
+    )
+
     # 9. Return { success: true, partner_name: creator.user_name }
     return JoinResponse(
         success=True, 
@@ -106,6 +117,15 @@ def disconnect_partner(current_user: User = Depends(get_current_user), db: Sessi
     if partner:
         partner.partner_id = None
         partner.is_partnered = False
+        
+        create_notification_and_push(
+            db,
+            recipient_id=partner.id,
+            notification_type="partner_disconnected",
+            title="Your bond has been disconnected",
+            body=f"{current_user.user_name or 'Your partner'} has disconnected.",
+            fcm_token=partner.fcm_token
+        )
         
     db.commit()
     return {"success": True, "message": "Successfully disconnected"}

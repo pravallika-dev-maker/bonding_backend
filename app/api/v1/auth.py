@@ -26,7 +26,7 @@ async def verify_code(request: VerifyCodeRequest, db: Session = Depends(get_db))
     )
     
     if is_valid:
-        # Generate long-lived JWT token (10 years — valid until explicit logout)
+        # Generate JWT token (30 days — valid until explicit logout or expiration)
         token = security.create_access_token(subject=request.phone_number)
         return {
             "accessToken": token,

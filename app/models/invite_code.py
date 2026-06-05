@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ..database import Base
 
 class InviteCode(Base):
@@ -9,5 +9,5 @@ class InviteCode(Base):
     code = Column(String(20), unique=True, index=True, nullable=False)
     creator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     is_used = Column(Boolean, default=False)
-    expires_at = Column(DateTime, nullable=False, default=lambda: datetime.utcnow() + timedelta(hours=24))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc) + timedelta(hours=24))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

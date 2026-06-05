@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Text, String, Boolean, DateTime, ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone
 from ..database import Base
 
 class ReflectionAnswer(Base):
@@ -17,4 +17,4 @@ class ReflectionAnswer(Base):
     ai_reaction_text = Column(Text, nullable=True)
     ai_processed = Column(Boolean, default=False)
     
-    answered_at = Column(DateTime, default=datetime.utcnow)
+    answered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

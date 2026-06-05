@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Date, Text, DateTime, ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone
 from ..database import Base
 
 class Separation(Base):
@@ -15,4 +15,4 @@ class Separation(Base):
     closing_insight = Column(Text, nullable=True)
     expected_end_date = Column(Date, nullable=True)
     ended_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

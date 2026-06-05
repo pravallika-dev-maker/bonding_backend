@@ -1,10 +1,25 @@
+import json
+import os
+import logging
 from google import genai
-import json, os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# We will initialize the client inside the functions
+logger = logging.getLogger("bonded.ai")
+
+# ── Singleton Gemini client ──────────────────────────────────────────────────
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
+        _client = genai.Client(api_key=api_key)
+    return _client
+
 
 SYSTEM_PROMPT = """You are Bonded AI — deeply emotionally intelligent, warm, comforting, and emotionally safe like a best friend, loving partner, and caring mother combined.
 
@@ -33,27 +48,22 @@ Return ONLY valid JSON:
 }"""
 
 async def analyze_answer(question_text: str, user_answer: str) -> dict:
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = _get_client()
     prompt = f'{SYSTEM_PROMPT}\n\nQuestion: "{question_text}"\nAnswer: "{user_answer}"'
     try:
         response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
         )
-        # Strip markdown code fences if present
         text = response.text.strip().strip("```json").strip("```").strip()
         return json.loads(text)
     except Exception as e:
-        print(f"Error in Gemini AI: {e}")
+        logger.error(f"Gemini analyze_answer failed: {e}")
         return {"emotion_detected": "neutral", "tone": "neutral",
                 "reaction_text": "That takes courage to share. Keep going."}
 
 async def generate_mood_insight(mood: str, reflection: str = "") -> dict:
-    """
-    Called when a user logs a mood check-in.
-    Returns a personalized emotional quote + advice based on their mood and optional reflection.
-    """
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = _get_client()
 
     reflection_context = f'\nThey also wrote: "{reflection}"' if reflection and reflection.strip() else ""
 
@@ -88,8 +98,7 @@ Return ONLY valid JSON:
             "advice": data.get("advice", "")
         }
     except Exception as e:
-        print(f"Error in Gemini Mood Insight: {e}")
-        # Meaningful fallbacks per mood
+        logger.error(f"Gemini generate_mood_insight failed: {e}")
         fallbacks = {
             "longing": {
                 "quote": "The ache of missing someone is love with nowhere to go — hold it gently.",
@@ -115,7 +124,7 @@ Return ONLY valid JSON:
 
 
 async def generate_comparison_suggestions(summary: list) -> list:
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = _get_client()
     prompt = f"""Two partners answered the same reflection question separately.
 Their answers: {json.dumps(summary, indent=2)}
 Generate 3 short, compassionate suggestions for this couple.
@@ -128,12 +137,12 @@ Return ONLY JSON array: ["suggestion1", "suggestion2", "suggestion3"]"""
         text = response.text.strip().strip("```json").strip("```").strip()
         return json.loads(text)
     except Exception as e:
-        print(f"Error in Gemini AI: {e}")
+        logger.error(f"Gemini generate_comparison_suggestions failed: {e}")
         return ["Showing up every day is already progress."]
 
 
 async def evaluate_love_letter(letter_content: str) -> int:
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = _get_client()
     prompt = f"""Read the following letter written by someone to their partner during a separation.
 Give it a 'love_score' from 0 to 100 based on how loving, constructive, forgiving, and emotionally safe it is.
 - High score (80-100): Full of love, hope, appreciation, taking responsibility, emotional warmth.
@@ -153,11 +162,11 @@ Return ONLY valid JSON:
         data = json.loads(text)
         return data.get("love_score", 0)
     except Exception as e:
-        print(f"Error in Gemini AI Love Scoring: {e}")
+        logger.error(f"Gemini evaluate_love_letter failed: {e}")
         return 0
 
 async def generate_journey_insights(partner_a_name: str, partner_b_name: str, data: dict) -> dict:
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = _get_client()
 
     prompt = f"""You are an emotionally intelligent relationship guide — warm, caring, wise, and deeply human. 
 You are reviewing the full emotional journey of a couple who just completed a separation period to grow and heal.
@@ -213,7 +222,7 @@ Return ONLY valid JSON in exactly this format:
         text = response.text.strip().strip("```json").strip("```").strip()
         return json.loads(text)
     except Exception as e:
-        print(f"Error in Gemini Journey Insights: {e}")
+        logger.error(f"Gemini generate_journey_insights failed: {e}")
         return {
             "coupleInsight": "You both showed up — and that alone says something beautiful.",
             "personalGrowths": [
@@ -225,3 +234,39 @@ Return ONLY valid JSON in exactly this format:
             "partnerBImprovement": "Try to listen without thinking about your response — just receive what they share.",
             "reflection": "Your relationship is slowly shifting from reaction to understanding. Even the smallest pauses you took created space for something better to grow between you."
         }
+
+
+async def generate_self_insight(mood_logs: list) -> str:
+    client = _get_client()
+    
+    # Format the mood history for the prompt
+    history_str = ""
+    for idx, log in enumerate(mood_logs):
+        note = log.get("reflection") or ""
+        history_str += f"- Log {idx+1}: Mood = {log.get('mood')}. Note = \"{note}\"\n"
+        
+    prompt = f"""You are Bonded AI — deeply emotionally intelligent, warm, comforting, and wise.
+A user has logged their moods and short reflections over the past few days.
+Analyze their mood history and generate a single, short, personalized insight or characteristic about them (e.g., "You don't express your feelings often" or "You seem more peaceful these days").
+The insight should be in second person ("You..."), gentle, observing, and empathetic.
+Keep it strictly under 15 words.
+
+Mood History:
+{history_str}
+
+Return ONLY a JSON object with a single key "insight":
+{{
+  "insight": "Your personalized insight here"
+}}"""
+    try:
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        text = response.text.strip().strip("```json").strip("```").strip()
+        data = json.loads(text)
+        return data.get("insight", "You are navigating this season with quiet strength.")
+    except Exception as e:
+        logger.error(f"Gemini generate_self_insight failed: {e}")
+        return "You are navigating this season with quiet strength."
+

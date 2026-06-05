@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from ...database import get_db
@@ -126,7 +126,7 @@ async def _generate_comparison(
 
         if comparison:
             comparison.suggestions = suggestions
-            comparison.generated_at = datetime.utcnow()
+            comparison.generated_at = datetime.now(timezone.utc)
         else:
             comparison = ReflectionComparison(
                 separation_id=sep_id,
@@ -326,7 +326,7 @@ async def submit_day(
 
     # Mark complete
     session.is_completed = True
-    session.completed_at = datetime.utcnow()
+    session.completed_at = datetime.now(timezone.utc)
     db.commit()
 
     # ── Check if partner also completed ─────────────────────────────────────
