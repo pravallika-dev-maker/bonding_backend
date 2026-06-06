@@ -1,12 +1,12 @@
-from pydantic import BaseModel
 from datetime import date, datetime
 from typing import Optional
-from .partner import BaseSchema
+from pydantic import Field
+from .auth import BaseSchema
 
 class SeparationCreate(BaseSchema):
-    duration_label: str
-    start_date: str # Send from frontend as YYYY-MM-DD
-    reason: Optional[str] = None
+    duration_label: str = Field(..., max_length=50)
+    start_date: str
+    reason: Optional[str] = Field(None, max_length=2000)
 
 class SeparationResponse(BaseSchema):
     id: int
@@ -22,9 +22,6 @@ class SeparationResponse(BaseSchema):
     created_at: datetime
     days_elapsed: int = 0
     partner_name: Optional[str] = None
-    
-    class Config:
-        from_attributes = True
 
 class ActiveSeparationResponse(BaseSchema):
     is_active: bool

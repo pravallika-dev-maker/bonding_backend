@@ -58,10 +58,14 @@ async def update_profile(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid dob format. Use YYYY-MM-DD")
         
-    db.commit()
-    db.refresh(current_user)
-    
-    return {"message": "Profile updated successfully", "success": True}
+    try:
+        db.commit()
+        db.refresh(current_user)
+        return {"message": "Profile updated successfully", "success": True}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database error in update_profile: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
 
 @router.delete("/me")
 async def delete_my_account(
@@ -129,12 +133,17 @@ async def delete_my_account(
         db.query(ReflectionComparison).filter(ReflectionComparison.separation_id.in_(sep_ids)).delete(synchronize_session=False)
         db.query(Separation).filter(Separation.id.in_(sep_ids)).delete(synchronize_session=False)
 
-    db.commit()
+    try:
+        db.commit()
 
-    db.query(User).filter(User.id == uid).delete(synchronize_session=False)
-    db.commit()
+        db.query(User).filter(User.id == uid).delete(synchronize_session=False)
+        db.commit()
 
-    return {"message": "Account and all associated data permanently deleted.", "success": True}
+        return {"message": "Account and all associated data permanently deleted.", "success": True}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database error in delete_my_account: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
 
 from ...schemas.user import FCMTokenUpdate
 
@@ -144,8 +153,13 @@ async def register_fcm_token(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    current_user.fcm_token = data.fcmToken
-    db.commit()
-    logger.info(f"Registered FCM token for user {current_user.id}: {data.fcmToken[:15]}...")
-    return {"success": True, "message": "FCM token registered successfully"}
+    try:
+        current_user.fcm_token = data.fcmToken
+        db.commit()
+        logger.info(f"Registered FCM token for user {current_user.id}: {data.fcmToken[:15]}...")
+        return {"success": True, "message": "FCM token registered successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database error in register_fcm_token: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
 

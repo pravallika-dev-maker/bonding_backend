@@ -59,49 +59,56 @@ async def create_mood(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 1. Call Gemini AI first to generate the personalized quote + advice
-    ai_result = await generate_mood_insight(
-        mood=mood_data.mood,
-        reflection=mood_data.reflection or ""
-    )
+    try:
+        # 1. Call Gemini AI first to generate the personalized quote + advice
+        ai_result = await generate_mood_insight(
+            mood=mood_data.mood,
+            reflection=mood_data.reflection or ""
+        )
 
-    # 2. Save the mood + AI output to DB together
-    new_mood = Mood(
-        user_id=current_user.id,
-        mood=mood_data.mood,
-        reflection=mood_data.reflection,
-        ai_quote=ai_result.get("quote"),
-        ai_advice=ai_result.get("advice"),
-    )
-    db.add(new_mood)
-    db.commit()
-    db.refresh(new_mood)
+        # 2. Save the mood + AI output to DB together
+        new_mood = Mood(
+            user_id=current_user.id,
+            mood=mood_data.mood,
+            reflection=mood_data.reflection,
+            ai_quote=ai_result.get("quote"),
+            ai_advice=ai_result.get("advice"),
+        )
+        db.add(new_mood)
+        db.commit()
+        db.refresh(new_mood)
 
-    # 3. Schedule background notifications (Trigger 4 & Trigger 7)
-    background_tasks.add_task(
-        _trigger_mood_notifications,
-        current_user.id,
-        current_user.partner_id,
-        new_mood.id,
-        db
-    )
+        # 3. Schedule background notifications (Trigger 4 & Trigger 7)
+        background_tasks.add_task(
+            _trigger_mood_notifications,
+            current_user.id,
+            current_user.partner_id,
+            new_mood.id,
+            db
+        )
 
-    # 4. Return mood with persisted AI insight
-    return {
-        "id": new_mood.id,
-        "mood": new_mood.mood,
-        "reflection": new_mood.reflection,
-        "created_at": new_mood.created_at,
-        "ai_quote": new_mood.ai_quote,
-        "ai_advice": new_mood.ai_advice,
-    }
+        # 4. Return mood with persisted AI insight
+        return {
+            "id": new_mood.id,
+            "mood": new_mood.mood,
+            "reflection": new_mood.reflection,
+            "created_at": new_mood.created_at,
+            "ai_quote": new_mood.ai_quote,
+            "ai_advice": new_mood.ai_advice,
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database error in create_mood: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
 
 @router.get("/", response_model=List[MoodResponse])
 async def get_my_moods(
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    moods = db.query(Mood).filter(Mood.user_id == current_user.id).order_by(Mood.created_at.desc()).all()
+    moods = db.query(Mood).filter(Mood.user_id == current_user.id).order_by(Mood.created_at.desc()).offset(skip).limit(limit).all()
     # Return historical moods with persisted AI fields from DB
     return [
         {

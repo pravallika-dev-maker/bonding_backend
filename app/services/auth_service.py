@@ -23,18 +23,23 @@ class AuthService:
         if otp != "123456":
             return False
             
-        user = db.query(User).filter(User.phone_number == phone_number).first()
-        if not user:
-            logger.info(f"Creating new user for phone: {phone_number}")
-            user = User(
-                phone_number=phone_number,
-                country_code=country_code,
-                is_active=True
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        else:
-            logger.info(f"Existing user logged in: {phone_number}")
-            
-        return True
+        try:
+            user = db.query(User).filter(User.phone_number == phone_number).first()
+            if not user:
+                logger.info(f"Creating new user for phone: {phone_number}")
+                user = User(
+                    phone_number=phone_number,
+                    country_code=country_code,
+                    is_active=True
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            else:
+                logger.info(f"Existing user logged in: {phone_number}")
+                
+            return True
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Database error in verify_otp: {e}")
+            raise

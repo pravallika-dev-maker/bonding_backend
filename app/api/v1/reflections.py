@@ -148,7 +148,7 @@ async def _generate_comparison(
                     "Both of you completed today's reflection. See how your answers compare.",
                 )
     except Exception as e:
-        print(f"[COMPARISON ERROR] day={day} sep={sep_id}: {e}")
+        logger.error(f"[COMPARISON ERROR] day={day} sep={sep_id}: {e}")
 
 
 # ────────────────────────────────────────────────────────────────────────────

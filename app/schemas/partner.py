@@ -1,14 +1,7 @@
-from pydantic import BaseModel
 from datetime import datetime
-
-# To support camelCase responses to Flutter
-class BaseSchema(BaseModel):
-    class Config:
-        populate_by_name = True
-        alias_generator = lambda string: "".join(
-            word.capitalize() if i > 0 else word 
-            for i, word in enumerate(string.split("_"))
-        )
+from typing import Optional
+from pydantic import Field
+from .auth import BaseSchema
 
 class InviteCodeResponse(BaseSchema):
     code: str
@@ -16,13 +9,13 @@ class InviteCodeResponse(BaseSchema):
     success: bool = True
 
 class JoinRequest(BaseSchema):
-    code: str
+    code: str = Field(..., max_length=20)
 
 class JoinResponse(BaseSchema):
     success: bool
-    partner_name: str | None = None
+    partner_name: Optional[str] = None
     message: str
 
 class PartnerMeResponse(BaseSchema):
-    partner_name: str | None = None
+    partner_name: Optional[str] = None
     is_connected: bool
