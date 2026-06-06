@@ -12,6 +12,8 @@ import logging
 
 logger = logging.getLogger("bonded.api")
 
+router = APIRouter(prefix="/partners", tags=["partners"])
+
 WORD_LIST = [
     'ROSE', 'LUNA', 'NOVA', 'EDEN', 'SAGE', 'IRIS', 'DAWN', 'STAR', 'VEIL', 'MIST',
     'FERN', 'GLOW', 'HAZE', 'JADE', 'LAKE', 'MOON', 'NEST', 'OPAL', 'PINE', 'RAIN',
