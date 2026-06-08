@@ -99,10 +99,10 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
             fcm_token=creator.fcm_token
         )
 
-        # 9. Return { success: true, partner_name: creator.user_name }
+        # 9. Return { success: true, partner_name: creator.user_name or current_user.partner_name }
         return JoinResponse(
             success=True, 
-            partner_name=creator.user_name, 
+            partner_name=creator.user_name or current_user.partner_name, 
             message="Successfully connected!"
         )
     except HTTPException:
@@ -124,7 +124,7 @@ def get_partner_me(current_user: User = Depends(get_current_user), db: Session =
     return PartnerMeResponse(
         is_connected=True,
         partner_id=partner.id,
-        partner_name=partner.user_name,
+        partner_name=partner.user_name or current_user.partner_name,
         gender=partner.gender,
         relation_type=partner.relation_type,
         relationship_date=partner.relationship_date,

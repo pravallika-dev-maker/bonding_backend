@@ -25,6 +25,11 @@ class SeparationResponse(BaseSchema):
 
 class ActiveSeparationResponse(BaseSchema):
     is_active: bool
+    id: Optional[int] = None
+    duration_label: Optional[str] = None
+    start_date: Optional[date] = None
+    expected_end_date: Optional[date] = None
+    reason: Optional[str] = None
     days_elapsed: int = 0
     mood_phrase: str = "Continuing to grow"
     partner_name: Optional[str] = None

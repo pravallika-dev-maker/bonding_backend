@@ -141,7 +141,7 @@ async def get_journey_score(
     if current_user.partner_id:
         partner = db.query(User).filter(User.id == current_user.partner_id).first()
         if partner:
-            partner_name = partner.user_name
+            partner_name = partner.user_name or current_user.partner_name
             old_partner_score = partner.relationship_score or 0
             partner_score = calculate_user_score(db, partner)
             partner.relationship_score = partner_score
