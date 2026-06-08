@@ -102,7 +102,7 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
         # 9. Return { success: true, partner_name: creator.user_name }
         return JoinResponse(
             success=True, 
-            partner_name=creator.user_name or "Your Partner", 
+            partner_name=creator.user_name, 
             message="Successfully connected!"
         )
     except HTTPException:
@@ -115,13 +115,22 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
 @router.get("/me", response_model=PartnerMeResponse)
 def get_partner_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.is_partnered or not current_user.partner_id:
-        return PartnerMeResponse(partner_name=None, is_connected=False)
-        
+        return PartnerMeResponse(is_connected=False)
+
     partner = db.query(User).filter(User.id == current_user.partner_id).first()
     if not partner:
-        return PartnerMeResponse(partner_name=None, is_connected=False)
-        
-    return PartnerMeResponse(partner_name=partner.user_name, is_connected=True)
+        return PartnerMeResponse(is_connected=False)
+
+    return PartnerMeResponse(
+        is_connected=True,
+        partner_id=partner.id,
+        partner_name=partner.user_name,
+        gender=partner.gender,
+        relation_type=partner.relation_type,
+        relationship_date=partner.relationship_date,
+        dob=partner.dob,
+        relationship_score=partner.relationship_score,
+    )
 
 @router.delete("/disconnect")
 def disconnect_partner(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

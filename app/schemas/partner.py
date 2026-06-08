@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 from pydantic import Field
 from .auth import BaseSchema
@@ -17,5 +17,11 @@ class JoinResponse(BaseSchema):
     message: str
 
 class PartnerMeResponse(BaseSchema):
-    partner_name: Optional[str] = None
     is_connected: bool
+    partner_id: Optional[int] = None
+    partner_name: Optional[str] = None
+    gender: Optional[str] = None
+    relation_type: Optional[str] = None
+    relationship_date: Optional[date] = None
+    dob: Optional[date] = None
+    relationship_score: Optional[int] = None

@@ -119,7 +119,7 @@ def get_separation_history(current_user: User = Depends(get_current_user), db: S
     res = []
     for s in seps:
         s.days_elapsed = (s.ended_at.date() - s.start_date).days if s.ended_at else (date.today() - s.start_date).days
-        s.partner_name = (partner.user_name or "Your Partner") if partner else None
+        s.partner_name = partner.user_name if partner else None
         res.append(s)
     return res
 
@@ -139,7 +139,7 @@ def get_separation(id: int, current_user: User = Depends(get_current_user), db: 
         
     ended_date = sep.ended_at.date() if sep.ended_at else date.today()
     sep.days_elapsed = (ended_date - sep.start_date).days
-    sep.partner_name = (partner.user_name or "Your Partner") if partner else None
+    sep.partner_name = partner.user_name if partner else None
     return sep
 
 @router.patch("/{id}/end")

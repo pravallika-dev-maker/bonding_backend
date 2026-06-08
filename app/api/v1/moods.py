@@ -40,12 +40,13 @@ async def _trigger_mood_notifications(user_id: int, partner_id: int, new_mood_id
         if partner_id:
             partner = db.query(User).filter(User.id == partner_id).first()
             if partner:
-                partner_name = user.user_name or "Your partner"
+                sender_name = user.user_name
+                title = f"🌤️ {sender_name} is feeling {new_mood.mood}" if sender_name else f"🌤️ Your partner is feeling {new_mood.mood}"
                 create_notification_and_push(
                     db=db,
                     recipient_id=partner_id,
                     notification_type="partner_mood",
-                    title=f"🌤️ {partner_name} is feeling {new_mood.mood}",
+                    title=title,
                     body="They logged how they're feeling today.",
                     fcm_token=partner.fcm_token
                 )
