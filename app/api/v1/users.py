@@ -12,8 +12,18 @@ logger = logging.getLogger("bonded.users")
 router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/me")
-async def get_my_profile(current_user: User = Depends(get_current_user)):
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     is_connected = current_user.partner_id is not None
+
+    # Always resolve partner name from the live partner record, not the stale self-stored field
+    partner_name = None
+    if is_connected:
+        partner = db.query(User).filter(User.id == current_user.partner_id).first()
+        partner_name = partner.user_name if partner else None
+
     return {
         "success": True,
         "data": {
@@ -22,7 +32,7 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
             "userName": current_user.user_name,
             # Partner-specific fields: only expose when actively connected
             "relationType": current_user.relation_type if is_connected else None,
-            "partnerName": current_user.partner_name if is_connected else None,
+            "partnerName": partner_name,
             "relationshipDate": current_user.relationship_date.isoformat() if (is_connected and current_user.relationship_date) else None,
             # Personal fields: always returned
             "dob": current_user.dob.isoformat() if current_user.dob else None,

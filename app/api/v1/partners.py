@@ -73,16 +73,48 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
         creator = db.query(User).filter(User.id == invite.creator_id).first()
         if not creator:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Creator not found")
+
+        # 4. Block if the joiner already has an active relationship
+        joiner_active_rel = db.query(Relationship).filter(
+            (Relationship.user1_id == current_user.id) | (Relationship.user2_id == current_user.id),
+            Relationship.status == "active"
+        ).first()
+        if joiner_active_rel:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You already have an active partner connection. Please disconnect your current partner before connecting a new one."
+            )
+
+        # 5. Block if the creator already has an active relationship
+        creator_active_rel = db.query(Relationship).filter(
+            (Relationship.user1_id == creator.id) | (Relationship.user2_id == creator.id),
+            Relationship.status == "active"
+        ).first()
+        if creator_active_rel:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The invite creator already has an active partner connection."
+            )
+
             
         # 4. Set current_user.partner_id = code.creator_id
         current_user.partner_id = creator.id
-        
+
         # 5. Set creator.partner_id = current_user.id
         creator.partner_id = current_user.id
-        
+
         # 6. Set both users is_partnered = True
         current_user.is_partnered = True
         creator.is_partnered = True
+
+        # 7. Clear stale partner metadata for both users so old relationship
+        #    details don't bleed into the new connection.
+        current_user.partner_name = None
+        current_user.relation_type = None
+        current_user.relationship_date = None
+        creator.partner_name = None
+        creator.relation_type = None
+        creator.relationship_date = None
         
         # 7. Mark code is_used = True
         invite.is_used = True
