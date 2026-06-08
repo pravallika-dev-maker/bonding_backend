@@ -8,6 +8,7 @@ class Separation(Base):
     id = Column(Integer, primary_key=True, index=True)
     creator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     partner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    relationship_id = Column(Integer, ForeignKey("relationships.id", ondelete="CASCADE"), nullable=True)
     duration_label = Column(String(50))
     start_date = Column(Date, nullable=False)
     reason = Column(Text, nullable=True)

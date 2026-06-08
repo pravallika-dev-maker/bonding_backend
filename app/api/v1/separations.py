@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ...database import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, get_active_relationship
 from ...models.user import User
 from ...models.separation import Separation
 from ...schemas.separation import SeparationCreate, SeparationResponse, ActiveSeparationResponse
@@ -21,7 +21,12 @@ MOOD_PHRASES = {
 }
 
 @router.post("/", response_model=SeparationResponse)
-def create_separation(request: SeparationCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_separation(
+    request: SeparationCreate, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db),
+    active_rel = Depends(get_active_relationship)
+):
     # Create Separation row
     start_d = datetime.fromisoformat(request.start_date.replace('Z', '+00:00')).date()
     
@@ -39,6 +44,7 @@ def create_separation(request: SeparationCreate, current_user: User = Depends(ge
     new_sep = Separation(
         creator_id=current_user.id,
         partner_id=current_user.partner_id,
+        relationship_id=active_rel.id if active_rel else None,
         duration_label=request.duration_label,
         start_date=start_d,
         expected_end_date=expected_end_d,
@@ -111,9 +117,17 @@ def get_active_separation(current_user: User = Depends(get_current_user), db: Se
     )
 
 @router.get("/history", response_model=list[SeparationResponse])
-def get_separation_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_separation_history(
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db),
+    active_rel = Depends(get_active_relationship)
+):
+    if not active_rel:
+        return []
+
     seps = db.query(Separation).filter(
         (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
+        Separation.relationship_id == active_rel.id,
         Separation.status == "completed"
     ).order_by(Separation.created_at.desc()).all()
     

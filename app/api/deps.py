@@ -5,6 +5,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User
+from ..models.relationship import Relationship
 from ..core import security
 
 logger = logging.getLogger("bonded.auth")
@@ -33,3 +34,15 @@ async def get_current_user(db: Session = Depends(get_db), auth: HTTPAuthorizatio
         logger.error(f"Database Error: Token is valid, but user with phone_number '{phone_number}' does not exist in the database.")
         raise credentials_exception
     return user
+
+def get_active_relationship(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.partner_id:
+        return None
+        
+    rel = db.query(Relationship).filter(
+        ((Relationship.user1_id == current_user.id) & (Relationship.user2_id == current_user.partner_id)) |
+        ((Relationship.user1_id == current_user.partner_id) & (Relationship.user2_id == current_user.id)),
+        Relationship.status == "active"
+    ).first()
+    
+    return rel

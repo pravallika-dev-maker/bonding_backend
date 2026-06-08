@@ -8,6 +8,7 @@ class Letter(Base):
     id = Column(Integer, primary_key=True, index=True)
     author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     partner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    relationship_id = Column(Integer, ForeignKey("relationships.id", ondelete="CASCADE"), nullable=True)
     
     title = Column(String(255), nullable=True)
     content = Column(Text, nullable=False)

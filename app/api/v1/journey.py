@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime
 from typing import List, Optional
 from ...database import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, get_active_relationship
 from ...models.user import User
 from ...models.separation import Separation
 from ...models.reflection_session import ReflectionSession
@@ -29,7 +29,7 @@ def get_love_word(score: int) -> dict:
     else:
         return {"loveWord": "Soulbound", "emoji": "👑", "message": "A truly profound, healed, and deep connection."}
 
-def calculate_user_score(db: Session, user: User) -> int:
+def calculate_user_score(db: Session, user: User, active_rel) -> int:
     score = 0
 
     # 1. Action: Completed Reflections (+5 each)
@@ -53,15 +53,19 @@ def calculate_user_score(db: Session, user: User) -> int:
         score += shared_days_count * 10
 
     # 3. Action: Write a Letter (+5 each)
-    letters_count = db.query(Letter).filter(Letter.author_id == user.id).count()
-    score += letters_count * 5
+    letters_query = db.query(Letter).filter(Letter.author_id == user.id)
+    if active_rel:
+        letters_query = letters_query.filter(Letter.relationship_id == active_rel.id)
+    score += letters_query.count() * 5
 
     # 4. Action: Letter AI love score >= 80 (+15 each)
-    high_score_letters = db.query(Letter).filter(
+    high_score_letters_query = db.query(Letter).filter(
         Letter.author_id == user.id,
         Letter.ai_love_score >= 80
-    ).count()
-    score += high_score_letters * 15
+    )
+    if active_rel:
+        high_score_letters_query = high_score_letters_query.filter(Letter.relationship_id == active_rel.id)
+    score += high_score_letters_query.count() * 15
 
     # 5. Action: Log a mood (+3 each)
     moods_count = db.query(Mood).filter(Mood.user_id == user.id).count()
@@ -76,11 +80,13 @@ def calculate_user_score(db: Session, user: User) -> int:
     score += positive_moods_count * 5
 
     # 7. Action: Completed Separation (+20 each)
-    completed_separations = db.query(Separation).filter(
+    completed_sep_query = db.query(Separation).filter(
         (Separation.creator_id == user.id) | (Separation.partner_id == user.id),
         Separation.status == "completed"
-    ).count()
-    score += completed_separations * 20
+    )
+    if active_rel:
+        completed_sep_query = completed_sep_query.filter(Separation.relationship_id == active_rel.id)
+    score += completed_sep_query.count() * 20
 
     # 8. Emotion Bonus: tone & emotion analysis
     answers = db.query(ReflectionAnswer).filter(ReflectionAnswer.user_id == user.id).all()
@@ -117,14 +123,15 @@ def calculate_user_score(db: Session, user: User) -> int:
 async def get_journey_score(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    active_rel = Depends(get_active_relationship)
 ):
     """
     Calculates the dynamic Relationship Health Score for the couple.
     loveWord is derived from BOTH partners' combined score — it is a couple concept.
     Also returns each partner's individual score for display.
     """
-    score = calculate_user_score(db, current_user)
+    score = calculate_user_score(db, current_user, active_rel)
 
     old_couple_score = current_user.relationship_score or 0
 
@@ -143,7 +150,7 @@ async def get_journey_score(
         if partner:
             partner_name = partner.user_name or current_user.partner_name
             old_partner_score = partner.relationship_score or 0
-            partner_score = calculate_user_score(db, partner)
+            partner_score = calculate_user_score(db, partner, active_rel)
             partner.relationship_score = partner_score
             partner_fcm_token = partner.fcm_token
             db.commit()
@@ -229,7 +236,8 @@ async def get_journey_insights(
     background_tasks: BackgroundTasks,
     separation_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    active_rel = Depends(get_active_relationship)
 ):
     """
     Reveals mature AI-generated insights at the end of the separation day.
@@ -257,10 +265,13 @@ async def get_journey_insights(
 
         if not sep:
             # Fallback check for recently completed separation to allow viewing history
-            sep = db.query(Separation).filter(
+            sep_query = db.query(Separation).filter(
                 (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
                 Separation.status == "completed"
-            ).order_by(Separation.ended_at.desc()).first()
+            ).order_by(Separation.ended_at.desc())
+            if active_rel:
+                sep_query = sep_query.filter(Separation.relationship_id == active_rel.id)
+            sep = sep_query.first()
 
     if not sep:
         return {
@@ -356,8 +367,14 @@ async def get_journey_insights(
         )
     ).count()
 
-    user_letters = db.query(Letter).filter(Letter.author_id == current_user.id).count()
-    partner_letters = db.query(Letter).filter(Letter.author_id == partner.id).count()
+    user_letters_query = db.query(Letter).filter(Letter.author_id == current_user.id)
+    partner_letters_query = db.query(Letter).filter(Letter.author_id == partner.id)
+    if active_rel:
+        user_letters_query = user_letters_query.filter(Letter.relationship_id == active_rel.id)
+        partner_letters_query = partner_letters_query.filter(Letter.relationship_id == active_rel.id)
+    
+    user_letters = user_letters_query.count()
+    partner_letters = partner_letters_query.count()
 
     bundle_data = {
         "partner_a_reflections": user_ref_data,

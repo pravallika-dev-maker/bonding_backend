@@ -4,6 +4,7 @@ from ...database import get_db
 from ..deps import get_current_user
 from ...models.user import User
 from ...models.invite_code import InviteCode
+from ...models.relationship import Relationship
 from ...schemas.partner import InviteCodeResponse, JoinRequest, JoinResponse, PartnerMeResponse
 from ...services.notification_service import create_notification, create_notification_and_push
 from datetime import datetime, timedelta, timezone
@@ -86,7 +87,16 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
         # 7. Mark code is_used = True
         invite.is_used = True
         
-        # 8. Commit DB
+        # 8. Create a new active Relationship
+        new_rel = Relationship(
+            user1_id=current_user.id,
+            user2_id=creator.id,
+            status="active",
+            journey_score=0
+        )
+        db.add(new_rel)
+        
+        # 9. Commit DB
         db.commit()
         
         # Notify creator
@@ -143,6 +153,19 @@ def disconnect_partner(current_user: User = Depends(get_current_user), db: Sessi
         # Set both users partner_id = None, is_partnered = False
         current_user.partner_id = None
         current_user.is_partnered = False
+        
+        # Archive the active relationship
+        active_rel = db.query(Relationship).filter(
+            ((Relationship.user1_id == current_user.id) & (Relationship.user2_id == partner.id)) |
+            ((Relationship.user1_id == partner.id) & (Relationship.user2_id == current_user.id)),
+            Relationship.status == "active"
+        ).first()
+        
+        if active_rel:
+            active_rel.status = "archived"
+            active_rel.ended_at = datetime.now(timezone.utc)
+            # Persist the final journey score
+            active_rel.journey_score = current_user.relationship_score or 0
         
         if partner:
             partner.partner_id = None

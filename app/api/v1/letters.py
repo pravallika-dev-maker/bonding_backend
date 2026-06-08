@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date
 from ...database import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, get_active_relationship
 from ...models.user import User
 from ...models.letter import Letter
 from ...models.separation import Separation
@@ -76,7 +76,8 @@ def map_letter_to_screen(letter: Letter, start_date) -> Optional[int]:
 async def create_letter(
     letter_data: LetterCreate, 
     db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    active_rel = Depends(get_active_relationship)
 ):
     # Ask Gemini to score how loving/forgiving the letter is (0-100)
     ai_score = await evaluate_love_letter(letter_data.content)
@@ -84,6 +85,7 @@ async def create_letter(
     new_letter = Letter(
         author_id=current_user.id,
         partner_id=current_user.partner_id,
+        relationship_id=active_rel.id if active_rel else None,
         title=letter_data.title,
         content=letter_data.content,
         letter_type=letter_data.letter_type.lower() if letter_data.letter_type else None,
@@ -114,16 +116,20 @@ async def create_letter(
 @router.get("/my", response_model=List[LetterResponse])
 def get_my_letters(
     db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    active_rel = Depends(get_active_relationship)
 ):
-    """Returns all letters the current user has written."""
-    return db.query(Letter).filter(Letter.author_id == current_user.id).order_by(Letter.created_at.desc()).all()
+    """Returns all letters the current user has written for the active relationship."""
+    if not active_rel:
+        return []
+    return db.query(Letter).filter(Letter.author_id == current_user.id, Letter.relationship_id == active_rel.id).order_by(Letter.created_at.desc()).all()
 
 
 @router.get("/partner/revealed", response_model=List[PartnerLetterScreenResponse])
 def get_revealed_partner_letters(
     db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    active_rel = Depends(get_active_relationship)
 ):
     """
     Returns structured letters written by the partner for the 4 swipeable reveal screens.
@@ -136,7 +142,7 @@ def get_revealed_partner_letters(
         {"screen": 4, "day": 6, "prompt_title": "Day 6 – What they want to change for you.", "action_label": "Show message", "letter": None},
     ]
 
-    if not current_user.partner_id:
+    if not current_user.partner_id or not active_rel:
         return screens
 
     # 1. Check for active or recently completed separation
@@ -160,6 +166,7 @@ def get_revealed_partner_letters(
             if days_remaining <= 0:
                 hidden_love_letters = db.query(Letter).filter(
                     Letter.author_id == current_user.partner_id,
+                    Letter.relationship_id == active_rel.id,
                     Letter.ai_love_score >= 40,  # Safeguard: only letters that are not toxic/blaming (>=40)
                     Letter.is_revealed == False
                 ).all()
@@ -182,6 +189,7 @@ def get_revealed_partner_letters(
         # 2. Get all currently revealed letters from the partner
         revealed_letters = db.query(Letter).filter(
             Letter.author_id == current_user.partner_id,
+            Letter.relationship_id == active_rel.id,
             Letter.is_revealed == True
         ).order_by(Letter.created_at.desc()).all()
 
