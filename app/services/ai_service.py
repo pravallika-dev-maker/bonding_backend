@@ -270,3 +270,41 @@ Return ONLY a JSON object with a single key "insight":
         logger.error(f"Gemini generate_self_insight failed: {e}")
         return "You are navigating this season with quiet strength."
 
+async def generate_daily_affirmation() -> str:
+    client = _get_client()
+    
+    prompt = """You are Bonded AI — deeply emotionally intelligent, warm, comforting, and romantic.
+Generate exactly one relationship-focused daily love affirmation.
+It should:
+- Help partners feel more connected, appreciated, and emotionally closer.
+- Be short (1-2 sentences).
+- Be safe, positive, and romantic.
+- Be suitable for both partners to view.
+
+Return ONLY a JSON object with a single key "affirmation":
+{
+  "affirmation": "Love grows stronger when two hearts choose understanding every day."
+}"""
+    try:
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        text = response.text.strip().strip("```json").strip("```").strip()
+        data = json.loads(text)
+        affirmation = data.get("affirmation", "")
+        if affirmation:
+            return affirmation
+        raise ValueError("Empty affirmation in response")
+    except Exception as e:
+        logger.error(f"Gemini generate_daily_affirmation failed: {e}")
+        import random
+        fallbacks = [
+            "Love grows stronger when two hearts choose understanding every day.",
+            "Every day is a new chance to choose each other.",
+            "Your love is a safe place to grow together.",
+            "Even in quiet moments, your connection speaks volumes.",
+            "Building a life together is the most beautiful journey."
+        ]
+        return random.choice(fallbacks)
+

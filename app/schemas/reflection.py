@@ -31,28 +31,12 @@ class AnswerResponse(BaseSchema):
     success: bool = True
     answer_id: int
     ai_reaction: AIReaction
-
-class SubmitRequest(BaseSchema):
-    session_id: int
-
-class SubmitResponse(BaseSchema):
-    success: bool = True
-    message: str
-    partner_also_completed: bool = False
-    comparison_ready: bool = False
+    is_completed: bool = False
 
 class TodayStatusResponse(BaseSchema):
     success: bool = True
     day_number: int
     user_completed: bool
-    partner_completed: bool
-    comparison_ready: bool
-
-class ComparisonResponse(BaseSchema):
-    success: bool = True
-    day_number: int
-    suggestions: List[str] = []
-    partner_completed: bool = False
 
 class SessionHistoryItem(BaseSchema):
     session_id: int

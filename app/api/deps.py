@@ -12,6 +12,7 @@ security_scheme = HTTPBearer()
 
 async def get_current_user(db: Session = Depends(get_db), auth: HTTPAuthorizationCredentials = Depends(security_scheme)):
     token = auth.credentials
+    logger.info(f"Raw token received by backend: '{token}'")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

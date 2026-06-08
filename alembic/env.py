@@ -14,7 +14,7 @@ from app.database import Base
 from app.models import (
     user, mood, invite_code, separation, notification,
     question_category, reflection_question, reflection_session,
-    reflection_answer, reflection_comparison, letter,
+    reflection_answer, reflection_comparison, letter, daily_affirmation,
 )
 
 config = context.config
