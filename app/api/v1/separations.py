@@ -78,10 +78,18 @@ def create_separation(
     return new_sep
 
 @router.get("/active", response_model=ActiveSeparationResponse)
-def get_active_separation(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_active_separation(
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db),
+    active_rel = Depends(get_active_relationship)
+):
+    if not active_rel:
+        return ActiveSeparationResponse(is_active=False)
+
     # 1. Query where (creator_id = user.id OR partner_id = user.id) AND status = "active"
     sep = db.query(Separation).filter(
         (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
+        Separation.relationship_id == active_rel.id,
         Separation.status == "active"
     ).first()
     

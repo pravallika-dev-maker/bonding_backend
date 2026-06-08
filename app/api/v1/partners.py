@@ -150,9 +150,12 @@ def disconnect_partner(current_user: User = Depends(get_current_user), db: Sessi
     try:
         partner = db.query(User).filter(User.id == current_user.partner_id).first()
         
-        # Set both users partner_id = None, is_partnered = False
+        # Clear all active partner fields for current user
         current_user.partner_id = None
         current_user.is_partnered = False
+        current_user.partner_name = None
+        current_user.relation_type = None
+        current_user.relationship_date = None
         
         # Archive the active relationship
         active_rel = db.query(Relationship).filter(
@@ -166,10 +169,23 @@ def disconnect_partner(current_user: User = Depends(get_current_user), db: Sessi
             active_rel.ended_at = datetime.now(timezone.utc)
             # Persist the final journey score
             active_rel.journey_score = current_user.relationship_score or 0
+            
+            # Also mark any active separations as completed
+            active_sep = db.query(Separation).filter(
+                Separation.relationship_id == active_rel.id,
+                Separation.status == "active"
+            ).first()
+            if active_sep:
+                active_sep.status = "completed"
+                active_sep.ended_at = datetime.now(timezone.utc)
         
         if partner:
+            # Clear all active partner fields for the other user too
             partner.partner_id = None
             partner.is_partnered = False
+            partner.partner_name = None
+            partner.relation_type = None
+            partner.relationship_date = None
             
             create_notification_and_push(
                 db,

@@ -39,6 +39,8 @@ def get_relationship_history(current_user: User = Depends(get_current_user), db:
         result.append(RelationshipHistoryItem(
             relationship_id=r.id,
             partner_name=partner_name,
+            partner_gender=partner.gender if partner else None,
+            partner_dob=partner.dob if partner else None,
             status=r.status,
             journey_score=r.journey_score,
             separation_count=sep_count,
@@ -94,6 +96,8 @@ def get_relationship_summary(relationship_id: int, current_user: User = Depends(
     return RelationshipSummaryResponse(
         relationship_id=rel.id,
         partner_name=partner.user_name if partner else None,
+        partner_gender=partner.gender if partner else None,
+        partner_dob=partner.dob if partner else None,
         journey_score=rel.journey_score,
         separation_count=sep_count,
         relationship_duration_days=max(0, duration_days),
