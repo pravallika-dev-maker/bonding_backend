@@ -13,19 +13,22 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/me")
 async def get_my_profile(current_user: User = Depends(get_current_user)):
+    is_connected = current_user.partner_id is not None
     return {
         "success": True,
         "data": {
             "id": current_user.id,
             "phoneNumber": current_user.phone_number,
             "userName": current_user.user_name,
-            "relationType": current_user.relation_type,
-            "partnerName": current_user.partner_name,
-            "relationshipDate": current_user.relationship_date.isoformat() if current_user.relationship_date else None,
+            # Partner-specific fields: only expose when actively connected
+            "relationType": current_user.relation_type if is_connected else None,
+            "partnerName": current_user.partner_name if is_connected else None,
+            "relationshipDate": current_user.relationship_date.isoformat() if (is_connected and current_user.relationship_date) else None,
+            # Personal fields: always returned
             "dob": current_user.dob.isoformat() if current_user.dob else None,
             "gender": current_user.gender,
             "partnerId": current_user.partner_id,
-            "isPartnerConnected": current_user.partner_id is not None,
+            "isPartnerConnected": is_connected,
         }
     }
 
