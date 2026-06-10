@@ -212,21 +212,6 @@ def get_revealed_partner_letters(
 
 
 
-@router.get("/{letter_id}", response_model=LetterResponse)
-def get_letter(
-    letter_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Returns a single letter by ID. Only the author can access it."""
-    letter = db.query(Letter).filter(
-        Letter.id == letter_id,
-        Letter.author_id == current_user.id
-    ).first()
-    if not letter:
-        raise HTTPException(status_code=404, detail="Letter not found")
-    return letter
-
 
 @router.patch("/{letter_id}", response_model=LetterResponse)
 async def update_letter(
