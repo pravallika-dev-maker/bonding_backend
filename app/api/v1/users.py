@@ -35,7 +35,6 @@ async def get_my_profile(
             "partnerName": partner_name,
             "relationshipDate": current_user.relationship_date.isoformat() if (is_connected and current_user.relationship_date) else None,
             # Personal fields: always returned
-            "dob": current_user.dob.isoformat() if current_user.dob else None,
             "gender": current_user.gender,
             "partnerId": current_user.partner_id,
             "isPartnerConnected": is_connected,

@@ -23,5 +23,4 @@ class PartnerMeResponse(BaseSchema):
     gender: Optional[str] = None
     relation_type: Optional[str] = None
     relationship_date: Optional[date] = None
-    dob: Optional[date] = None
     relationship_score: Optional[int] = None

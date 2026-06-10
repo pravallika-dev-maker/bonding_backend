@@ -170,7 +170,6 @@ def get_partner_me(current_user: User = Depends(get_current_user), db: Session =
         gender=partner.gender,
         relation_type=partner.relation_type,
         relationship_date=partner.relationship_date,
-        dob=partner.dob,
         relationship_score=partner.relationship_score,
     )
 

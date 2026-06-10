@@ -79,6 +79,24 @@ async def create_letter(
     current_user: User = Depends(get_current_user),
     active_rel = Depends(get_active_relationship)
 ):
+    # Guard: letters can only be written during an active separation
+    if not active_rel:
+        raise HTTPException(
+            status_code=400,
+            detail="You must have an active partner connection to write letters."
+        )
+
+    active_sep = db.query(Separation).filter(
+        (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
+        Separation.relationship_id == active_rel.id,
+        Separation.status == "active"
+    ).first()
+    if not active_sep:
+        raise HTTPException(
+            status_code=400,
+            detail="Letters can only be written during an active separation period."
+        )
+
     # Ask Gemini to score how loving/forgiving the letter is (0-100)
     ai_score = await evaluate_love_letter(letter_data.content)
 
@@ -119,10 +137,28 @@ def get_my_letters(
     current_user: User = Depends(get_current_user),
     active_rel = Depends(get_active_relationship)
 ):
-    """Returns all letters the current user has written for the active relationship."""
+    """Returns all letters the current user has written during the active separation."""
     if not active_rel:
-        return []
-    return db.query(Letter).filter(Letter.author_id == current_user.id, Letter.relationship_id == active_rel.id).order_by(Letter.created_at.desc()).all()
+        raise HTTPException(
+            status_code=400,
+            detail="You must have an active partner connection to view letters."
+        )
+
+    active_sep = db.query(Separation).filter(
+        (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
+        Separation.relationship_id == active_rel.id,
+        Separation.status == "active"
+    ).first()
+    if not active_sep:
+        raise HTTPException(
+            status_code=400,
+            detail="Letters are only available during an active separation period."
+        )
+
+    return db.query(Letter).filter(
+        Letter.author_id == current_user.id,
+        Letter.relationship_id == active_rel.id
+    ).order_by(Letter.created_at.desc()).all()
 
 
 @router.get("/partner/revealed", response_model=List[PartnerLetterScreenResponse])
