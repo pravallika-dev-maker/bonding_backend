@@ -131,36 +131,6 @@ async def create_letter(
 
 
 
-@router.get("/my", response_model=List[LetterResponse])
-def get_my_letters(
-    db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user),
-    active_rel = Depends(get_active_relationship)
-):
-    """Returns all letters the current user has written during the active separation."""
-    if not active_rel:
-        raise HTTPException(
-            status_code=400,
-            detail="You must have an active partner connection to view letters."
-        )
-
-    active_sep = db.query(Separation).filter(
-        (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
-        Separation.relationship_id == active_rel.id,
-        Separation.status == "active"
-    ).first()
-    if not active_sep:
-        raise HTTPException(
-            status_code=400,
-            detail="Letters are only available during an active separation period."
-        )
-
-    return db.query(Letter).filter(
-        Letter.author_id == current_user.id,
-        Letter.relationship_id == active_rel.id
-    ).order_by(Letter.created_at.desc()).all()
-
-
 @router.get("/partner/revealed", response_model=List[PartnerLetterScreenResponse])
 def get_revealed_partner_letters(
     db: Session = Depends(get_db), 

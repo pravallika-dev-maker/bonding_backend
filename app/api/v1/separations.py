@@ -124,32 +124,6 @@ def get_active_separation(
         partner_name=partner_name
     )
 
-@router.get("/history", response_model=list[SeparationResponse])
-def get_separation_history(
-    current_user: User = Depends(get_current_user), 
-    db: Session = Depends(get_db),
-    active_rel = Depends(get_active_relationship)
-):
-    if not active_rel:
-        return []
-
-    seps = db.query(Separation).filter(
-        (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
-        Separation.relationship_id == active_rel.id,
-        Separation.status == "completed"
-    ).order_by(Separation.created_at.desc()).all()
-    
-    partner = None
-    if current_user.partner_id:
-        partner = db.query(User).filter(User.id == current_user.partner_id).first()
-        
-    res = []
-    for s in seps:
-        s.days_elapsed = (s.ended_at.date() - s.start_date).days if s.ended_at else (date.today() - s.start_date).days
-        s.partner_name = (partner.user_name or current_user.partner_name) if partner else None
-        res.append(s)
-    return res
-
 @router.get("/{id}", response_model=SeparationResponse)
 def get_separation(id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     sep = db.query(Separation).filter(

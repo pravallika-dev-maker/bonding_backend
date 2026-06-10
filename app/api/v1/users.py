@@ -24,20 +24,26 @@ async def get_my_profile(
         partner = db.query(User).filter(User.id == current_user.partner_id).first()
         partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
 
+    active_rel_data = None
+    if is_connected and partner:
+        active_rel_data = {
+            "partnerName": partner_name,
+            "gender": partner.gender,
+            "relationType": current_user.relation_type,
+            "relationshipDate": current_user.relationship_date.isoformat() if current_user.relationship_date else None,
+            "relationshipScore": current_user.relationship_score
+        }
+
     return {
         "success": True,
         "data": {
             "id": current_user.id,
             "phoneNumber": current_user.phone_number,
             "userName": current_user.user_name,
-            # Partner-specific fields: only expose when actively connected
-            "relationType": current_user.relation_type if is_connected else None,
-            "partnerName": partner_name,
-            "relationshipDate": current_user.relationship_date.isoformat() if (is_connected and current_user.relationship_date) else None,
-            # Personal fields: always returned
             "gender": current_user.gender,
             "partnerId": current_user.partner_id,
             "isPartnerConnected": is_connected,
+            "activeRelationship": active_rel_data
         }
     }
 

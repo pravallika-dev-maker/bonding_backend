@@ -155,25 +155,6 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
         logger.error(f"Database error in join_partner: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred. Please try again.")
 
-@router.get("/me", response_model=PartnerMeResponse)
-def get_partner_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not current_user.is_partnered or not current_user.partner_id:
-        return PartnerMeResponse(is_connected=False)
-
-    partner = db.query(User).filter(User.id == current_user.partner_id).first()
-    if not partner:
-        return PartnerMeResponse(is_connected=False)
-
-    return PartnerMeResponse(
-        is_connected=True,
-        partner_id=partner.id,
-        partner_name=partner.user_name or current_user.partner_name,
-        gender=partner.gender,
-        relation_type=partner.relation_type,
-        relationship_date=partner.relationship_date,
-        relationship_score=partner.relationship_score,
-    )
-
 @router.delete("/disconnect")
 def disconnect_partner(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.partner_id:
