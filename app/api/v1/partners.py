@@ -5,6 +5,7 @@ from ..deps import get_current_user
 from ...models.user import User
 from ...models.invite_code import InviteCode
 from ...models.relationship import Relationship
+from ...models.separation import Separation
 from ...schemas.partner import InviteCodeResponse, JoinRequest, JoinResponse, PartnerMeResponse
 from ...services.notification_service import create_notification, create_notification_and_push
 from datetime import datetime, timedelta, timezone
