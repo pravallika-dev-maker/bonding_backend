@@ -32,7 +32,7 @@ def get_relationship_history(current_user: User = Depends(get_current_user), db:
     for r in rels:
         partner_id = r.user2_id if r.user1_id == current_user.id else r.user1_id
         partner = db.query(User).filter(User.id == partner_id).first()
-        partner_name = partner.user_name if partner else None
+        partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
         
         sep_count = db.query(Separation).filter(Separation.relationship_id == r.id).count()
         
@@ -77,7 +77,7 @@ def get_relationship_separations(relationship_id: int, current_user: User = Depe
     
     for s in seps:
         s.days_elapsed = (s.ended_at.date() - s.start_date).days if s.ended_at else (date.today() - s.start_date).days
-        s.partner_name = partner.user_name if partner else None
+        s.partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
         
     return seps
 
@@ -95,7 +95,7 @@ def get_relationship_summary(relationship_id: int, current_user: User = Depends(
     
     return RelationshipSummaryResponse(
         relationship_id=rel.id,
-        partner_name=partner.user_name if partner else None,
+        partner_name=partner.user_name if (partner and partner.user_name) else current_user.partner_name,
         partner_gender=partner.gender if partner else None,
         journey_score=rel.journey_score,
         separation_count=sep_count,

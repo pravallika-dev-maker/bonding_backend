@@ -22,7 +22,7 @@ async def get_my_profile(
     partner_name = None
     if is_connected:
         partner = db.query(User).filter(User.id == current_user.partner_id).first()
-        partner_name = partner.user_name if partner else None
+        partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
 
     return {
         "success": True,
