@@ -124,25 +124,6 @@ def get_active_separation(
         partner_name=partner_name
     )
 
-@router.get("/{id}", response_model=SeparationResponse)
-def get_separation(id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    sep = db.query(Separation).filter(
-        Separation.id == id,
-        (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id)
-    ).first()
-    
-    if not sep:
-        raise HTTPException(status_code=404, detail="Separation not found")
-        
-    partner = None
-    if current_user.partner_id:
-        partner = db.query(User).filter(User.id == current_user.partner_id).first()
-        
-    ended_date = sep.ended_at.date() if sep.ended_at else date.today()
-    sep.days_elapsed = (ended_date - sep.start_date).days
-    sep.partner_name = (partner.user_name or current_user.partner_name) if partner else None
-    return sep
-
 @router.patch("/{id}/end")
 def end_separation(id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     sep = db.query(Separation).filter(
