@@ -13,6 +13,8 @@ def add_columns():
     with engine.connect() as conn:
         print("Adding summary_insight column to relationships table...")
         conn.execute(text("ALTER TABLE relationships ADD COLUMN IF NOT EXISTS summary_insight TEXT;"))
+        print("Adding relationship_type column to relationships table...")
+        conn.execute(text("ALTER TABLE relationships ADD COLUMN IF NOT EXISTS relationship_type VARCHAR(50);"))
         conn.commit()
         print("Successfully updated the relationships table schema.")
 

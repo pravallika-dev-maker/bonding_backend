@@ -36,6 +36,9 @@ def get_relationship_history(current_user: User = Depends(get_current_user), db:
         
         sep_count = db.query(Separation).filter(Separation.relationship_id == r.id).count()
         
+        # Use persisted type if archived, or current_user's relation_type if active
+        rel_type = r.relationship_type if r.status == "archived" else current_user.relation_type
+        
         result.append(RelationshipHistoryItem(
             relationship_id=r.id,
             partner_name=partner_name,
@@ -45,7 +48,7 @@ def get_relationship_history(current_user: User = Depends(get_current_user), db:
             separation_count=sep_count,
             started_at=r.created_at,
             ended_at=r.ended_at,
-            relationship_type="romantic"
+            relationship_type=rel_type
         ))
         
     return result
@@ -94,6 +97,9 @@ def get_relationship_summary(relationship_id: int, current_user: User = Depends(
     end_date = rel.ended_at.date() if rel.ended_at else date.today()
     duration_days = (end_date - rel.created_at.date()).days
     
+    # Use persisted type if archived, or current_user's relation_type if active
+    rel_type = rel.relationship_type if rel.status == "archived" else current_user.relation_type
+    
     return RelationshipSummaryResponse(
         relationship_id=rel.id,
         partner_name=partner.user_name if (partner and partner.user_name) else current_user.partner_name,
@@ -102,7 +108,8 @@ def get_relationship_summary(relationship_id: int, current_user: User = Depends(
         separation_count=sep_count,
         relationship_duration_days=max(0, duration_days),
         status=rel.status,
-        relationship_type="romantic",
+        relationship_type=rel_type,
         relationship_summary=rel.summary_insight
     )
+
 
