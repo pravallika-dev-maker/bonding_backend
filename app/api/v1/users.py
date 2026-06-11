@@ -43,6 +43,10 @@ async def get_my_profile(
             "gender": current_user.gender,
             "partnerId": current_user.partner_id,
             "isPartnerConnected": is_connected,
+            "partnerName": partner_name,
+            "relationType": current_user.relation_type,
+            "relationshipDate": current_user.relationship_date.isoformat() if current_user.relationship_date else None,
+            "relationshipScore": current_user.relationship_score,
             "activeRelationship": active_rel_data
         }
     }
