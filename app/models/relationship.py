@@ -15,3 +15,5 @@ class Relationship(Base):
     ended_at = Column(DateTime, nullable=True)
     summary_insight = Column(String, nullable=True)
     relationship_type = Column(String(50), nullable=True)
+    user1_name = Column(String(100), nullable=True)
+    user2_name = Column(String(100), nullable=True)

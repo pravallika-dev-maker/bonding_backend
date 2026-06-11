@@ -166,13 +166,6 @@ async def disconnect_partner(current_user: User = Depends(get_current_user), db:
     try:
         partner = db.query(User).filter(User.id == current_user.partner_id).first()
         
-        # Clear all active partner fields for current user
-        current_user.partner_id = None
-        current_user.is_partnered = False
-        current_user.partner_name = None
-        current_user.relation_type = None
-        current_user.relationship_date = None
-        
         # Archive the active relationship
         active_rel = db.query(Relationship).filter(
             ((Relationship.user1_id == current_user.id) & (Relationship.user2_id == partner.id)) |
@@ -187,6 +180,12 @@ async def disconnect_partner(current_user: User = Depends(get_current_user), db:
             active_rel.journey_score = current_user.relationship_score or 0
             # Persist the relationship type (checking both users' profiles to find the populated type)
             active_rel.relationship_type = current_user.relation_type or (partner.relation_type if partner else None)
+            
+            # Persist historical names
+            user1 = db.query(User).filter(User.id == active_rel.user1_id).first()
+            user2 = db.query(User).filter(User.id == active_rel.user2_id).first()
+            active_rel.user1_name = user1.user_name if (user1 and user1.user_name) else (user1.partner_name if user1 else None)
+            active_rel.user2_name = user2.user_name if (user2 and user2.user_name) else (user2.partner_name if user2 else None)
             
             # Calculate metrics for the relationship summary
             duration_days = max(0, (active_rel.ended_at.date() - active_rel.created_at.date()).days)
@@ -223,6 +222,13 @@ async def disconnect_partner(current_user: User = Depends(get_current_user), db:
                 active_sep.status = "completed"
                 active_sep.ended_at = datetime.now(timezone.utc)
         
+        # Clear all active partner fields for current user AFTER we have archived relationship fields
+        current_user.partner_id = None
+        current_user.is_partnered = False
+        current_user.partner_name = None
+        current_user.relation_type = None
+        current_user.relationship_date = None
+
         if partner:
             # Clear all active partner fields for the other user too
             partner.partner_id = None

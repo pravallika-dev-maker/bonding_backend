@@ -15,6 +15,10 @@ def add_columns():
         conn.execute(text("ALTER TABLE relationships ADD COLUMN IF NOT EXISTS summary_insight TEXT;"))
         print("Adding relationship_type column to relationships table...")
         conn.execute(text("ALTER TABLE relationships ADD COLUMN IF NOT EXISTS relationship_type VARCHAR(50);"))
+        print("Adding user1_name column to relationships table...")
+        conn.execute(text("ALTER TABLE relationships ADD COLUMN IF NOT EXISTS user1_name VARCHAR(100);"))
+        print("Adding user2_name column to relationships table...")
+        conn.execute(text("ALTER TABLE relationships ADD COLUMN IF NOT EXISTS user2_name VARCHAR(100);"))
         conn.commit()
         print("Successfully updated the relationships table schema.")
 

@@ -32,7 +32,12 @@ def get_relationship_history(current_user: User = Depends(get_current_user), db:
     for r in rels:
         partner_id = r.user2_id if r.user1_id == current_user.id else r.user1_id
         partner = db.query(User).filter(User.id == partner_id).first()
-        partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
+        
+        # Determine partner name (use persisted name if archived, live database name otherwise)
+        if r.status == "archived":
+            partner_name = r.user2_name if r.user1_id == current_user.id else r.user1_name
+        else:
+            partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
         
         sep_count = db.query(Separation).filter(Separation.relationship_id == r.id).count()
         
@@ -100,9 +105,15 @@ def get_relationship_summary(relationship_id: int, current_user: User = Depends(
     # Use persisted type if archived, or current_user's relation_type if active
     rel_type = rel.relationship_type if rel.status == "archived" else current_user.relation_type
     
+    # Determine partner name (use persisted name if archived, live database name otherwise)
+    if rel.status == "archived":
+        partner_name = rel.user2_name if rel.user1_id == current_user.id else rel.user1_name
+    else:
+        partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
+        
     return RelationshipSummaryResponse(
         relationship_id=rel.id,
-        partner_name=partner.user_name if (partner and partner.user_name) else current_user.partner_name,
+        partner_name=partner_name,
         partner_gender=partner.gender if partner else None,
         journey_score=rel.journey_score,
         separation_count=sep_count,
