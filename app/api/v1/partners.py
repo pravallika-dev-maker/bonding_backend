@@ -185,8 +185,8 @@ async def disconnect_partner(current_user: User = Depends(get_current_user), db:
             active_rel.ended_at = datetime.now(timezone.utc)
             # Persist the final journey score
             active_rel.journey_score = current_user.relationship_score or 0
-            # Persist the relationship type
-            active_rel.relationship_type = current_user.relation_type
+            # Persist the relationship type (checking both users' profiles to find the populated type)
+            active_rel.relationship_type = current_user.relation_type or (partner.relation_type if partner else None)
             
             # Calculate metrics for the relationship summary
             duration_days = max(0, (active_rel.ended_at.date() - active_rel.created_at.date()).days)
