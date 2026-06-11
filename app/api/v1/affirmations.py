@@ -37,17 +37,18 @@ async def get_todays_affirmation(
             ).order_by(Separation.created_at.desc()).first()
 
         # ── Step 2: Check unlock condition ────────────────────────────────────
-        # Affirmation is locked until the user completes today's reflection.
-        today_completed = False
-        if active_sep:
-            today_day = (date.today() - active_sep.start_date).days + 1
-            today_session = db.query(ReflectionSession).filter(
-                ReflectionSession.user_id == current_user.id,
-                ReflectionSession.separation_id == active_sep.id,
-                ReflectionSession.day_number == today_day,
-                ReflectionSession.is_completed == True,
-            ).first()
-            today_completed = today_session is not None
+        # Affirmation is locked until the user completes today's mood check-in.
+        from datetime import datetime, timezone
+        
+        # Determine the start of today to filter moods
+        today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+        
+        mood_today = db.query(Mood).filter(
+            Mood.user_id == current_user.id,
+            Mood.created_at >= today_start
+        ).first()
+        
+        today_completed = mood_today is not None
 
         if not today_completed:
             # Return locked state — no affirmation text yet
@@ -55,7 +56,7 @@ async def get_todays_affirmation(
                 date=date.today(),
                 affirmation=None,
                 is_locked=True,
-                lock_reason="Complete today's reflection check-in to unlock your daily affirmation."
+                lock_reason="Complete today's mood check-in to unlock your daily affirmation."
             )
 
         # ── Step 3: Gather user context for personalization ───────────────────

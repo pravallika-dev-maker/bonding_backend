@@ -160,40 +160,20 @@ async def submit_answer(
         raise HTTPException(status_code=404, detail="Session not found")
 
     if session.is_completed:
-        # Already completed — return cached AI reaction idempotently
-        existing = db.query(ReflectionAnswer).filter(
-            ReflectionAnswer.session_id == session.id,
-            ReflectionAnswer.question_id == request.question_id,
-        ).first()
-        if existing:
-            return AnswerResponse(
-                answer_id=existing.id,
-                ai_reaction=AIReaction(
-                    emotion_detected=existing.ai_emotion_detected or "neutral",
-                    tone=existing.ai_tone or "neutral",
-                    reaction_text=existing.ai_reaction_text or "Thank you for sharing.",
-                ),
-                is_completed=True,
-            )
         raise HTTPException(
             status_code=400,
-            detail="This reflection day is already completed."
+            detail="You have already submitted your reflection for today."
         )
 
-    # Check if answer already exists for this question in this session (idempotent)
+    # Check if answer already exists for this question in this session
     existing = db.query(ReflectionAnswer).filter(
         ReflectionAnswer.session_id == session.id,
         ReflectionAnswer.question_id == request.question_id,
     ).first()
     if existing:
-        return AnswerResponse(
-            answer_id=existing.id,
-            ai_reaction=AIReaction(
-                emotion_detected=existing.ai_emotion_detected or "neutral",
-                tone=existing.ai_tone or "neutral",
-                reaction_text=existing.ai_reaction_text or "Thank you for sharing.",
-            ),
-            is_completed=session.is_completed,
+        raise HTTPException(
+            status_code=400,
+            detail="You have already submitted an answer for this reflection question."
         )
 
     # Fetch question text for AI prompt
