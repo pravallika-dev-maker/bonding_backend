@@ -72,8 +72,8 @@ def create_separation(
         if partner:
             partner_name = partner.user_name or current_user.partner_name
             
-    # Convert to response
-    new_sep.days_elapsed = (date.today() - new_sep.start_date).days
+    # Convert to response — day 1 is the start date itself (1-based, same as reflections)
+    new_sep.days_elapsed = (date.today() - new_sep.start_date).days + 1
     new_sep.partner_name = partner_name
     return new_sep
 
@@ -96,15 +96,14 @@ def get_active_separation(
     if not sep:
         return ActiveSeparationResponse(is_active=False)
         
-    # 2. Compute days_elapsed = (today - start_date).days
-    days = (date.today() - sep.start_date).days
-    if days < 0:
-        days = 0 # in case start_date is in future
+    # 2. Compute days_elapsed — 1-based so Day 1 = start date, Day 2 = day after, etc.
+    #    This is consistent with how reflections.py calculates day_number (elapsed + 1).
+    days = (date.today() - sep.start_date).days + 1
+    if days < 1:
+        days = 1  # guard against future start_date
         
     # 3. Compute mood_phrase from day number
-    # Day 1 is index 1 for the dict. If days elapsed is 0, let's treat it as Day 1.
-    day_number = days + 1 
-    phrase = MOOD_PHRASES.get(day_number, "Continuing to grow")
+    phrase = MOOD_PHRASES.get(days, "Continuing to grow")
     
     # Resolve partner_name: try live partner record first, then onboarding fallback
     partner_name = current_user.partner_name  # onboarding fallback
