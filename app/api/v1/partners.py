@@ -6,6 +6,9 @@ from ...models.user import User
 from ...models.invite_code import InviteCode
 from ...models.relationship import Relationship
 from ...models.separation import Separation
+from ...models.letter import Letter
+from ...models.reflection_session import ReflectionSession
+from ...services.ai_service import generate_relationship_summary
 from ...schemas.partner import InviteCodeResponse, JoinRequest, JoinResponse, PartnerMeResponse
 from ...services.notification_service import create_notification, create_notification_and_push
 from datetime import datetime, timedelta, timezone
@@ -156,7 +159,7 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal error occurred. Please try again.")
 
 @router.delete("/disconnect")
-def disconnect_partner(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def disconnect_partner(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.partner_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You do not have a partner connected")
         
@@ -182,6 +185,32 @@ def disconnect_partner(current_user: User = Depends(get_current_user), db: Sessi
             active_rel.ended_at = datetime.now(timezone.utc)
             # Persist the final journey score
             active_rel.journey_score = current_user.relationship_score or 0
+            
+            # Calculate metrics for the relationship summary
+            duration_days = max(0, (active_rel.ended_at.date() - active_rel.created_at.date()).days)
+            journey_score = active_rel.journey_score
+            sep_count = db.query(Separation).filter(Separation.relationship_id == active_rel.id).count()
+            letters_count = db.query(Letter).filter(Letter.relationship_id == active_rel.id).count()
+            ref_sessions_count = db.query(ReflectionSession).join(
+                Separation, ReflectionSession.separation_id == Separation.id
+            ).filter(
+                Separation.relationship_id == active_rel.id,
+                ReflectionSession.is_completed == True
+            ).count()
+
+            # Generate the summary insight using AI
+            try:
+                summary_insight = await generate_relationship_summary(
+                    duration_days=duration_days,
+                    journey_score=journey_score,
+                    separation_count=sep_count,
+                    letters_count=letters_count,
+                    ref_sessions_count=ref_sessions_count
+                )
+                active_rel.summary_insight = summary_insight
+            except Exception as e:
+                logger.error(f"Failed to generate relationship summary insight: {e}")
+                active_rel.summary_insight = "You navigated this journey with courage, leaving behind a path of quiet growth and shared understanding."
             
             # Also mark any active separations as completed
             active_sep = db.query(Separation).filter(

@@ -203,15 +203,15 @@ The response should feel emotionally intelligent, transparent, caring like a clo
 
 Return ONLY valid JSON in exactly this format:
 {{
-  "coupleInsight": "One warm, deeply observant sentence about what you see between them as a couple.",
+  "coupleInsight": "A deep, emotionally resonant, and personalized narrative paragraph (3-5 sentences) summarizing their journey, highlighting specific emotional connections, mood patterns, and reflections they shared during their separation.",
   "personalGrowths": [
-    "An observation about {partner_a_name}'s emotional growth (positive, specific, genuine)",
-    "An observation about {partner_b_name}'s emotional growth (positive, specific, genuine)",
-    "Something both have shown together"
+    "A detailed, specific, and warm observation (2-3 sentences) about {partner_a_name}'s emotional growth during this separation, referencing their mood patterns or reflections.",
+    "A detailed, specific, and warm observation (2-3 sentences) about {partner_b_name}'s emotional growth during this separation, referencing their mood patterns or reflections.",
+    "A meaningful observation (2-3 sentences) about the emotional growth they demonstrated together."
   ],
-  "partnerAImprovement": "One gentle, wise suggestion for {partner_a_name} — caring, not blaming.",
-  "partnerBImprovement": "One gentle, wise suggestion for {partner_b_name} — caring, not blaming.",
-  "reflection": "A 2-3 sentence closing reflection that summarizes their journey with hope, warmth, and wisdom."
+  "partnerAImprovement": "A gentle, wise, actionable, and supportive suggestion (2-3 sentences) for {partner_a_name} to help them improve emotionally and communicate better — caring, not blaming.",
+  "partnerBImprovement": "A gentle, wise, actionable, and supportive suggestion (2-3 sentences) for {partner_b_name} to help them improve emotionally and communicate better — caring, not blaming.",
+  "reflection": "A beautiful, poetic, and comforting closing reflection (3-4 sentences) that summarizes their journey with hope, warmth, and deep emotional wisdom."
 }}"""
 
     try:
@@ -224,16 +224,59 @@ Return ONLY valid JSON in exactly this format:
     except Exception as e:
         logger.error(f"Gemini generate_journey_insights failed: {e}")
         return {
-            "coupleInsight": "You both showed up — and that alone says something beautiful.",
+            "coupleInsight": "Throughout this separation, you have both shown a courage that is quiet but profound. By taking space to look inward, you've created a landscape where understanding can slowly replace reaction, and where emotional safety can begin to take root.",
             "personalGrowths": [
-                "You've been honest with your emotions throughout this journey.",
-                "You've been consistently present and thoughtful.",
-                "Together, you are both choosing growth over comfort."
+                "You've shown a consistent willingness to explore the quieter corners of your heart, showing up with honesty even on the days when the emotions felt heavy.",
+                "Your reflection answers reveal a deep sincerity, demonstrating that you are actively choosing self-awareness and patience over immediate reactions.",
+                "Together, you have honored this time of distance not as a separation, but as a bridge toward clearer, gentler connection."
             ],
-            "partnerAImprovement": "Try sharing your feelings a little earlier — before they become too heavy to carry alone.",
-            "partnerBImprovement": "Try to listen without thinking about your response — just receive what they share.",
+            "partnerAImprovement": "Consider sharing your emotional needs when they first arise, rather than waiting for them to compound. Your feelings deserve to be heard when they are fresh and manageable.",
+            "partnerBImprovement": "Try focusing on receiving your partner's emotions fully before moving into problem-solving. Simply validating their space can build immense trust.",
             "reflection": "Your relationship is slowly shifting from reaction to understanding. Even the smallest pauses you took created space for something better to grow between you."
         }
+
+
+async def generate_relationship_summary(
+    duration_days: int,
+    journey_score: int,
+    separation_count: int,
+    letters_count: int,
+    ref_sessions_count: int
+) -> str:
+    client = _get_client()
+    prompt = f"""You are Bonded AI — deeply emotionally intelligent, warm, comforting, and poetic.
+A couple has ended their relationship journey. Here is a summary of their metrics:
+- Relationship Duration: {duration_days} days
+- Final Journey Score: {journey_score}
+- Number of Separation Periods: {separation_count}
+- Love Letters Exchanged: {letters_count}
+- Emotional Reflections Completed: {ref_sessions_count}
+
+Based on these metrics, generate a single, beautiful, and emotionally meaningful relationship summary line. 
+It should:
+- Speak of the journey with honor, tenderness, and hope.
+- Be concise (1-2 sentences, under 30 words).
+- Highlight the effort they put in (reflections, letters, and separations) as a testament to their growth, regardless of the relationship ending.
+- Never sound robotic, statistical, clinical, or cold. Do not list the raw numbers in the sentence. Instead, translate these numbers into an observation of their shared growth and emotional connection.
+- Avoid clichés.
+
+Return ONLY a JSON object with a single key "relationship_summary":
+{{
+  "relationship_summary": "Your beautiful relationship summary here"
+}}"""
+
+    try:
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        text = response.text.strip().strip("```json").strip("```").strip()
+        data = json.loads(text)
+        return data.get("relationship_summary", "You navigated this journey with courage, leaving behind a path of quiet growth and shared understanding.")
+    except Exception as e:
+        logger.error(f"Gemini generate_relationship_summary failed: {e}")
+        return "You navigated this journey with courage, leaving behind a path of quiet growth and shared understanding."
+
 
 
 async def generate_self_insight(mood_logs: list) -> str:

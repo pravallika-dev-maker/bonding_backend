@@ -13,3 +13,4 @@ class Relationship(Base):
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     ended_at = Column(DateTime, nullable=True)
+    summary_insight = Column(String, nullable=True)

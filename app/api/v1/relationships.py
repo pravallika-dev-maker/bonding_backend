@@ -44,7 +44,8 @@ def get_relationship_history(current_user: User = Depends(get_current_user), db:
             journey_score=r.journey_score,
             separation_count=sep_count,
             started_at=r.created_at,
-            ended_at=r.ended_at
+            ended_at=r.ended_at,
+            relationship_type="romantic"
         ))
         
     return result
@@ -100,5 +101,8 @@ def get_relationship_summary(relationship_id: int, current_user: User = Depends(
         journey_score=rel.journey_score,
         separation_count=sep_count,
         relationship_duration_days=max(0, duration_days),
-        status=rel.status
+        status=rel.status,
+        relationship_type="romantic",
+        relationship_summary=rel.summary_insight
     )
+

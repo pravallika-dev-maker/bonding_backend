@@ -11,6 +11,7 @@ class RelationshipHistoryItem(BaseModel):
     separation_count: int
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
+    relationship_type: str = "romantic"
 
     class Config:
         from_attributes = True
@@ -23,3 +24,6 @@ class RelationshipSummaryResponse(BaseModel):
     separation_count: int
     relationship_duration_days: int
     status: str
+    relationship_type: str = "romantic"
+    relationship_summary: Optional[str] = None
+
