@@ -37,6 +37,10 @@ class TodayStatusResponse(BaseSchema):
     success: bool = True
     day_number: int
     user_completed: bool
+    partner_completed: bool = False
+    user_total_completed: int = 0
+    partner_total_completed: int = 0
+    shared_days_completed: int = 0
 
 class SessionHistoryItem(BaseSchema):
     session_id: int

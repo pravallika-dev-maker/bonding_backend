@@ -7,6 +7,7 @@ from ...database import get_db
 from ..deps import get_current_user
 from ...models.user import User
 from ...models.separation import Separation
+from ...models.relationship import Relationship
 from ...models.reflection_question import ReflectionQuestion
 from ...models.reflection_session import ReflectionSession
 from ...models.reflection_answer import ReflectionAnswer
@@ -24,10 +25,31 @@ logger = logging.getLogger("bonded.reflections")
 # ── Helper: get active separation or raise 404 ───────────────────────────────
 
 def _get_active_separation(user: User, db: Session) -> Separation:
-    sep = db.query(Separation).filter(
-        (Separation.creator_id == user.id) | (Separation.partner_id == user.id),
-        Separation.status == "active"
+    """
+    Resolves the active separation by first finding the user's active relationship,
+    then finding the active separation within that relationship.
+    This ensures both partners always resolve the SAME separation and never
+    accidentally match stale separations from previous relationships.
+    """
+    # Step 1: find the user's currently active relationship
+    active_rel = db.query(Relationship).filter(
+        (Relationship.user1_id == user.id) | (Relationship.user2_id == user.id),
+        Relationship.status == "active"
     ).first()
+
+    if not active_rel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active relationship found."
+        )
+
+    # Step 2: find the active separation scoped to that relationship
+    # Order by created_at desc to always get the latest one if multiple exist
+    sep = db.query(Separation).filter(
+        Separation.relationship_id == active_rel.id,
+        Separation.status == "active"
+    ).order_by(Separation.created_at.desc()).first()
+
     if not sep:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -225,12 +247,13 @@ async def get_today_status(
     db: Session = Depends(get_db),
 ):
     """
-    Returns whether the user has completed today's reflection.
-    Used by the dashboard to show the reflection badge state.
+    Returns whether the user and their partner have completed today's reflection,
+    plus total completed day counts for both. Used by the home screen.
     """
     sep = _get_active_separation(current_user, db)
     day = _day_number(sep)
 
+    # Today's completion status for current user
     user_session = db.query(ReflectionSession).filter(
         ReflectionSession.user_id == current_user.id,
         ReflectionSession.separation_id == sep.id,
@@ -238,7 +261,51 @@ async def get_today_status(
     ).first()
     user_completed = bool(user_session and user_session.is_completed)
 
+    # Total completed days for current user in this separation
+    user_total_completed = db.query(ReflectionSession).filter(
+        ReflectionSession.user_id == current_user.id,
+        ReflectionSession.separation_id == sep.id,
+        ReflectionSession.is_completed == True,
+    ).count()
+
+    # Partner status (partner_id on the separation row is the other user's id)
+    partner_completed = False
+    partner_total_completed = 0
+    shared_days_completed = 0
+
+    partner_user_id = sep.partner_id if sep.creator_id == current_user.id else sep.creator_id
+    if partner_user_id:
+        partner_session = db.query(ReflectionSession).filter(
+            ReflectionSession.user_id == partner_user_id,
+            ReflectionSession.separation_id == sep.id,
+            ReflectionSession.day_number == day,
+        ).first()
+        partner_completed = bool(partner_session and partner_session.is_completed)
+
+        partner_total_completed = db.query(ReflectionSession).filter(
+            ReflectionSession.user_id == partner_user_id,
+            ReflectionSession.separation_id == sep.id,
+            ReflectionSession.is_completed == True,
+        ).count()
+
+        # Days where BOTH partners completed their reflection in this separation
+        user_completed_days = db.query(ReflectionSession.day_number).filter(
+            ReflectionSession.user_id == current_user.id,
+            ReflectionSession.separation_id == sep.id,
+            ReflectionSession.is_completed == True,
+        )
+        partner_completed_days = db.query(ReflectionSession.day_number).filter(
+            ReflectionSession.user_id == partner_user_id,
+            ReflectionSession.separation_id == sep.id,
+            ReflectionSession.is_completed == True,
+        )
+        shared_days_completed = user_completed_days.intersect(partner_completed_days).count()
+
     return TodayStatusResponse(
         day_number=day,
         user_completed=user_completed,
+        partner_completed=partner_completed,
+        user_total_completed=user_total_completed,
+        partner_total_completed=partner_total_completed,
+        shared_days_completed=shared_days_completed,
     )
