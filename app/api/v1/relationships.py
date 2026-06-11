@@ -79,14 +79,21 @@ def get_relationship_separations(relationship_id: int, current_user: User = Depe
         Separation.relationship_id == relationship_id
     ).order_by(Separation.created_at.desc()).all()
     
-    # We need to map partner_name and days_elapsed for the schema
     rel = db.query(Relationship).filter(Relationship.id == relationship_id).first()
-    partner_id = rel.user2_id if rel.user1_id == current_user.id else rel.user1_id
-    partner = db.query(User).filter(User.id == partner_id).first()
+
+    # Resolve partner_name once for all separations in this relationship:
+    # For archived relationships, use the historically stored names on the relationship record.
+    # For active relationships, do a live lookup then fall back to onboarding partner_name.
+    if rel.status == "archived":
+        partner_name = rel.user2_name if rel.user1_id == current_user.id else rel.user1_name
+    else:
+        partner_id = rel.user2_id if rel.user1_id == current_user.id else rel.user1_id
+        partner = db.query(User).filter(User.id == partner_id).first()
+        partner_name = (partner.user_name if (partner and partner.user_name) else None) or current_user.partner_name
     
     for s in seps:
         s.days_elapsed = (s.ended_at.date() - s.start_date).days if s.ended_at else (date.today() - s.start_date).days
-        s.partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
+        s.partner_name = partner_name
         
     return seps
 

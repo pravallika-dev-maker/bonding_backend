@@ -106,11 +106,13 @@ def get_active_separation(
     day_number = days + 1 
     phrase = MOOD_PHRASES.get(day_number, "Continuing to grow")
     
-    partner_name = None
-    if current_user.partner_id:
-        partner = db.query(User).filter(User.id == current_user.partner_id).first()
-        if partner:
-            partner_name = partner.user_name or current_user.partner_name
+    # Resolve partner_name: try live partner record first, then onboarding fallback
+    partner_name = current_user.partner_name  # onboarding fallback
+    other_user_id = sep.partner_id if sep.creator_id == current_user.id else sep.creator_id
+    if other_user_id:
+        other_user = db.query(User).filter(User.id == other_user_id).first()
+        if other_user and other_user.user_name:
+            partner_name = other_user.user_name
             
     return ActiveSeparationResponse(
         is_active=True,

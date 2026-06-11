@@ -18,12 +18,21 @@ async def get_my_profile(
 ):
     is_connected = current_user.partner_id is not None
 
-    # Always resolve partner name from the live partner record, not the stale self-stored field
-    partner_name = None
+    # Resolve partner name:
+    # - If connected: prefer live partner's user_name, fall back to onboarding partner_name
+    # - If not connected: return onboarding partner_name (collected during profile setup)
+    partner = None
     if is_connected:
         partner = db.query(User).filter(User.id == current_user.partner_id).first()
-        partner_name = partner.user_name if (partner and partner.user_name) else current_user.partner_name
 
+    partner_name = None
+    if is_connected and partner:
+        partner_name = partner.user_name if partner.user_name else current_user.partner_name
+    elif not is_connected:
+        # Return the onboarding-collected partner name even before/after a connection
+        partner_name = current_user.partner_name
+
+    # Only expose activeRelationship and relationshipScore when actively connected
     active_rel_data = None
     if is_connected and partner:
         active_rel_data = {
@@ -46,7 +55,8 @@ async def get_my_profile(
             "partnerName": partner_name,
             "relationType": current_user.relation_type,
             "relationshipDate": current_user.relationship_date.isoformat() if current_user.relationship_date else None,
-            "relationshipScore": current_user.relationship_score,
+            # Only return a live score when connected; null otherwise to avoid stale data
+            "relationshipScore": current_user.relationship_score if is_connected else None,
             "activeRelationship": active_rel_data
         }
     }
