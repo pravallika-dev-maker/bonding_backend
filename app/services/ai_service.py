@@ -329,40 +329,42 @@ Return ONLY a JSON object with a single key "insight":
         logger.error(f"Gemini generate_self_insight failed: {e}")
         return "You are navigating this season with quiet strength."
 
-async def generate_personalized_affirmation(
+async def generate_daily_affirmation(
     user_name: str,
-    mood_history: list,
-    reflection_history: list,
-    in_separation: bool
+    in_separation: bool,
+    recent_affirmations: list
 ) -> str:
     client = _get_client()
     
-    sep_context = "The user is currently in an active relationship separation period, taking time apart to reflect and grow." if in_separation else "The user is currently in an active relationship."
+    sep_context = """
+- Active Separation: YES. Focus on patience, trust, growth, reconnection, emotional resilience, understanding, and hope.
+""" if in_separation else """
+- Active Separation: NO. Focus on love, appreciation, gratitude, connection, emotional bonding, and relationship growth.
+"""
     
-    prompt = f"""You are Bonded AI — deeply emotionally intelligent, warm, comforting, and wise.
-Generate exactly one personalized daily affirmation for a user named {user_name}.
+    prompt = f"""You are Bonded AI — deeply emotionally intelligent, warm, comforting, and inspiring.
+Generate exactly one short, powerful, elegant daily love quote or affirmation for a user named {user_name}.
 
-Context about {user_name}:
-- Relationship Status: {sep_context}
-- Recent Moods: {json.dumps(mood_history)}
-- Recent Reflections: {json.dumps(reflection_history)}
+CONTEXT: {sep_context}
+
+AVOID THESE RECENT AFFIRMATIONS (do not generate anything substantially similar):
+{json.dumps(recent_affirmations)}
 
 CRITICAL RULES:
-- Speak DIRECTLY to the user ("You...", "Your..."). Do NOT generate a couple/partner quote ("We...", "Our...").
-- The affirmation should serve as a reward for completing their daily reflection.
-- It should encourage self-reflection, emotional growth, and healthy mindset.
-- Adapt to their recent mood patterns if they are clear (e.g., if feeling stressed, offer patience; if positive, encourage continuing).
+- The affirmation should focus on inspiration, emotional encouragement, and meaningful bonding.
 - Keep it short (1-2 sentences).
-- Feel personal, uplifting, and safe.
+- Do NOT generate generic motivational quotes (e.g. "seize the day").
+- Do NOT generate partner conversations or roleplay.
+- Do NOT generate advice (e.g. "you should try to...").
+- Feel profound and poetic, like a beautiful quote.
 
-Example good affirmations:
-- "You are creating space for gratitude and connection. Keep nurturing the moments that bring you peace."
-- "Growth often begins with small moments of honesty. Be patient with yourself and trust the progress you are making."
-- "This time apart is also a time for self-discovery. Every thoughtful reflection helps you grow stronger and more aware."
+Examples:
+- "Distance is not the absence of love; it is often where love learns patience."
+- "The quiet days matter too. Growth often happens in moments that feel invisible."
 
 Return ONLY a JSON object with a single key "affirmation":
 {{
-  "affirmation": "Your personalized affirmation here"
+  "affirmation": "Your beautiful affirmation here"
 }}"""
 
     try:
@@ -377,6 +379,55 @@ Return ONLY a JSON object with a single key "affirmation":
             return affirmation
         raise ValueError("Empty affirmation in response")
     except Exception as e:
-        logger.error(f"Gemini generate_personalized_affirmation failed: {e}")
-        return "Growth begins with small moments of honesty. Be patient with yourself and trust your progress."
+        logger.error(f"Gemini generate_daily_affirmation failed: {e}")
+        return "Every quiet step you take toward understanding is a step toward deeper love."
+
+async def generate_daily_insight(
+    user_name: str,
+    mood_history: list,
+    reflection_history: list,
+    recent_insights: list
+) -> str:
+    client = _get_client()
+    
+    prompt = f"""You are Bonded AI — an intelligent, analytical, and deeply empathetic relationship coach.
+Generate exactly one thoughtful, actionable, and personalized behavioral insight for {user_name}.
+
+DATA TO ANALYZE:
+- Recent Moods: {json.dumps(mood_history)}
+- Recent Reflections: {json.dumps(reflection_history)}
+
+AVOID THESE RECENT INSIGHTS (do not generate anything substantially similar):
+{json.dumps(recent_insights)}
+
+CRITICAL RULES:
+- The insight MUST analyze their behavior, emotional patterns, relationship habits, communication style, or personal growth.
+- Provide a genuine observation, NOT generic motivation.
+- Speak directly to them ("You...", "We noticed...").
+- Keep it to 2-4 sentences.
+- It should feel like a brilliant psychological observation from a highly trained coach based on their actual data.
+
+Examples:
+- "A pattern we noticed is that you often focus on understanding your partner's feelings before expressing your own. Giving your emotions equal space may help create more balanced conversations."
+- "Your recent reflections suggest that you process difficult emotions through self-reflection rather than immediate reactions. This appears to be one of your emotional strengths."
+
+Return ONLY a JSON object with a single key "insight":
+{{
+  "insight": "Your insightful observation here"
+}}"""
+
+    try:
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        text = response.text.strip().strip("```json").strip("```").strip()
+        data = json.loads(text)
+        insight = data.get("insight", "")
+        if insight:
+            return insight
+        raise ValueError("Empty insight in response")
+    except Exception as e:
+        logger.error(f"Gemini generate_daily_insight failed: {e}")
+        return "Your emotional awareness continues to grow as you process your feelings openly. Checking in with yourself daily builds resilience over time."
 
