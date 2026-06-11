@@ -329,21 +329,42 @@ Return ONLY a JSON object with a single key "insight":
         logger.error(f"Gemini generate_self_insight failed: {e}")
         return "You are navigating this season with quiet strength."
 
-async def generate_daily_affirmation() -> str:
+async def generate_personalized_affirmation(
+    user_name: str,
+    mood_history: list,
+    reflection_history: list,
+    in_separation: bool
+) -> str:
     client = _get_client()
     
-    prompt = """You are Bonded AI — deeply emotionally intelligent, warm, comforting, and romantic.
-Generate exactly one relationship-focused daily love affirmation.
-It should:
-- Help partners feel more connected, appreciated, and emotionally closer.
-- Be short (1-2 sentences).
-- Be safe, positive, and romantic.
-- Be suitable for both partners to view.
+    sep_context = "The user is currently in an active relationship separation period, taking time apart to reflect and grow." if in_separation else "The user is currently in an active relationship."
+    
+    prompt = f"""You are Bonded AI — deeply emotionally intelligent, warm, comforting, and wise.
+Generate exactly one personalized daily affirmation for a user named {user_name}.
+
+Context about {user_name}:
+- Relationship Status: {sep_context}
+- Recent Moods: {json.dumps(mood_history)}
+- Recent Reflections: {json.dumps(reflection_history)}
+
+CRITICAL RULES:
+- Speak DIRECTLY to the user ("You...", "Your..."). Do NOT generate a couple/partner quote ("We...", "Our...").
+- The affirmation should serve as a reward for completing their daily reflection.
+- It should encourage self-reflection, emotional growth, and healthy mindset.
+- Adapt to their recent mood patterns if they are clear (e.g., if feeling stressed, offer patience; if positive, encourage continuing).
+- Keep it short (1-2 sentences).
+- Feel personal, uplifting, and safe.
+
+Example good affirmations:
+- "You are creating space for gratitude and connection. Keep nurturing the moments that bring you peace."
+- "Growth often begins with small moments of honesty. Be patient with yourself and trust the progress you are making."
+- "This time apart is also a time for self-discovery. Every thoughtful reflection helps you grow stronger and more aware."
 
 Return ONLY a JSON object with a single key "affirmation":
-{
-  "affirmation": "Love grows stronger when two hearts choose understanding every day."
-}"""
+{{
+  "affirmation": "Your personalized affirmation here"
+}}"""
+
     try:
         response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
@@ -356,14 +377,6 @@ Return ONLY a JSON object with a single key "affirmation":
             return affirmation
         raise ValueError("Empty affirmation in response")
     except Exception as e:
-        logger.error(f"Gemini generate_daily_affirmation failed: {e}")
-        import random
-        fallbacks = [
-            "Love grows stronger when two hearts choose understanding every day.",
-            "Every day is a new chance to choose each other.",
-            "Your love is a safe place to grow together.",
-            "Even in quiet moments, your connection speaks volumes.",
-            "Building a life together is the most beautiful journey."
-        ]
-        return random.choice(fallbacks)
+        logger.error(f"Gemini generate_personalized_affirmation failed: {e}")
+        return "Growth begins with small moments of honesty. Be patient with yourself and trust your progress."
 
