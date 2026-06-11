@@ -74,25 +74,52 @@ async def get_home_hero(
         if progress_percentage > 100.0:
             progress_percentage = 100.0
             
-        # Select a comforting message
-        # We can just pick a random one, or we could use the AI service. 
-        # The prompt examples look like static list, but the user says "generated for the current separation journey".
-        # Let's generate it using AI, falling back to static list if it fails.
-        from ...services.ai_service import _get_client
-        client = _get_client()
-        comfort_message = random.choice(COMFORT_MESSAGES)
-        
-        try:
-            prompt = "Generate a single, very short comforting message (1 sentence) for someone in a relationship separation journey. It should be warm, supportive, and easy to understand. Examples: 'Every quiet moment brings deeper clarity.' or 'Distance can create room for understanding.'"
-            response = await client.aio.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt,
-            )
-            text = response.text.strip().strip('"').strip()
-            if text:
-                comfort_message = text
-        except Exception as e:
-            logger.error(f"Gemini comfort_message generation failed: {e}")
+        # ── Get-or-create today's comfort message (persisted, never regenerated) ──
+        from ...models.user_daily_comfort import UserDailyComfort
+        today = date.today()
+
+        existing_comfort = db.query(UserDailyComfort).filter(
+            UserDailyComfort.user_id == current_user.id,
+            UserDailyComfort.comfort_date == today
+        ).first()
+
+        if existing_comfort:
+            # Return the same quote stored for today — no regeneration
+            comfort_message = existing_comfort.text
+        else:
+            # First call today: generate and persist
+            comfort_message = random.choice(COMFORT_MESSAGES)
+            try:
+                from ...services.ai_service import _get_client
+                client = _get_client()
+                prompt = (
+                    "Generate a single, very short comforting message (1 sentence) for someone "
+                    "in a relationship separation journey. It should be warm, supportive, and easy "
+                    "to understand. Examples: 'Every quiet moment brings deeper clarity.' or "
+                    "'Distance can create room for understanding.'"
+                )
+                response = await client.aio.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt,
+                )
+                text = response.text.strip().strip('"').strip()
+                if text:
+                    comfort_message = text
+            except Exception as e:
+                logger.error(f"Gemini comfort_message generation failed: {e}")
+
+            # Persist so every subsequent call today returns the same quote
+            try:
+                new_comfort = UserDailyComfort(
+                    user_id=current_user.id,
+                    comfort_date=today,
+                    text=comfort_message
+                )
+                db.add(new_comfort)
+                db.commit()
+            except Exception as e:
+                logger.error(f"Failed to persist comfort message: {e}")
+                db.rollback()
 
         return HomeHeroResponse(
             partner_connected=True,
