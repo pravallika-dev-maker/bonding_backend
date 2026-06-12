@@ -121,15 +121,6 @@ def join_partner(request: JoinRequest, current_user: User = Depends(get_current_
         current_user.is_partnered = True
         creator.is_partnered = True
 
-        # 7. Clear stale partner metadata for both users so old relationship
-        #    details don't bleed into the new connection.
-        current_user.partner_name = None
-        current_user.relation_type = None
-        current_user.relationship_date = None
-        creator.partner_name = None
-        creator.relation_type = None
-        creator.relationship_date = None
-        
         # 7. Mark code is_used = True
         invite.is_used = True
         
