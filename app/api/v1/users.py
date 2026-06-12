@@ -32,14 +32,22 @@ async def get_my_profile(
         # Return the onboarding-collected partner name even before/after a connection
         partner_name = current_user.partner_name
 
+    # Merge logic for missing fields
+    if is_connected and partner:
+        relation_type = current_user.relation_type or partner.relation_type
+        relationship_date = current_user.relationship_date or partner.relationship_date
+    else:
+        relation_type = current_user.relation_type
+        relationship_date = current_user.relationship_date
+
     # Only expose activeRelationship and relationshipScore when actively connected
     active_rel_data = None
     if is_connected and partner:
         active_rel_data = {
             "partnerName": partner_name,
             "gender": partner.gender,
-            "relationType": current_user.relation_type,
-            "relationshipDate": current_user.relationship_date.isoformat() if current_user.relationship_date else None,
+            "relationType": relation_type,
+            "relationshipDate": relationship_date.isoformat() if relationship_date else None,
             "relationshipScore": current_user.relationship_score
         }
 
@@ -53,8 +61,8 @@ async def get_my_profile(
             "partnerId": current_user.partner_id,
             "isPartnerConnected": is_connected,
             "partnerName": partner_name,
-            "relationType": current_user.relation_type,
-            "relationshipDate": current_user.relationship_date.isoformat() if current_user.relationship_date else None,
+            "relationType": relation_type,
+            "relationshipDate": relationship_date.isoformat() if relationship_date else None,
             # Only return a live score when connected; null otherwise to avoid stale data
             "relationshipScore": current_user.relationship_score if is_connected else None,
             "activeRelationship": active_rel_data

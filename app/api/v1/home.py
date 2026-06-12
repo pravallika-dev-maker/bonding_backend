@@ -39,7 +39,10 @@ async def get_home_hero(
         ).first()
 
         if not active_rel:
-            return HomeHeroResponse(partner_connected=False)
+            return HomeHeroResponse(
+                partner_connected=False,
+                partner_name=current_user.partner_name
+            )
 
         # Resolve partner name
         partner_id = active_rel.user2_id if active_rel.user1_id == current_user.id else active_rel.user1_id

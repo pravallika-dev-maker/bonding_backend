@@ -42,7 +42,10 @@ def get_relationship_history(current_user: User = Depends(get_current_user), db:
         sep_count = db.query(Separation).filter(Separation.relationship_id == r.id).count()
         
         # Use persisted type if archived, or current_user's relation_type if active
-        rel_type = r.relationship_type if r.status == "archived" else current_user.relation_type
+        if r.status == "archived":
+            rel_type = r.relationship_type
+        else:
+            rel_type = current_user.relation_type or (partner.relation_type if partner else None)
         
         result.append(RelationshipHistoryItem(
             relationship_id=r.id,
@@ -110,7 +113,10 @@ def get_relationship_summary(relationship_id: int, current_user: User = Depends(
     duration_days = (end_date - rel.created_at.date()).days
     
     # Use persisted type if archived, or current_user's relation_type if active
-    rel_type = rel.relationship_type if rel.status == "archived" else current_user.relation_type
+    if rel.status == "archived":
+        rel_type = rel.relationship_type
+    else:
+        rel_type = current_user.relation_type or (partner.relation_type if partner else None)
     
     # Determine partner name (use persisted name if archived, live database name otherwise)
     if rel.status == "archived":
