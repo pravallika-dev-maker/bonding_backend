@@ -130,6 +130,18 @@ async def create_letter(
     return new_letter
 
 
+@router.get("/", response_model=List[LetterResponse])
+def get_user_letters(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns all letters authored by the current user.
+    """
+    letters = db.query(Letter).filter(
+        Letter.author_id == current_user.id
+    ).order_by(Letter.created_at.desc()).all()
+    return letters
 
 @router.get("/partner/revealed", response_model=List[PartnerLetterScreenResponse])
 def get_revealed_partner_letters(
