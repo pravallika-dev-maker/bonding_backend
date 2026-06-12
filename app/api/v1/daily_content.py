@@ -58,7 +58,16 @@ async def get_daily_insight(
     db: Session = Depends(get_db)
 ):
     try:
-        # 1. Check Unlock Condition (Mood logged today)
+        # 1. Check if user has a partner
+        if not current_user.partner_id:
+            return DailyInsightResponse(
+                date=date.today(),
+                insight=None,
+                is_locked=True,
+                lock_reason="Connect with a partner to begin your reflection journey and unlock daily insights."
+            )
+
+        # 2. Check Unlock Condition (Mood logged today)
         today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
         
         mood_today = db.query(Mood).filter(
