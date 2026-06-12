@@ -337,13 +337,13 @@ async def generate_daily_affirmation(
     client = _get_client()
     
     sep_context = """
-- Active Separation: YES. Focus on patience, trust, growth, reconnection, emotional resilience, understanding, and hope.
+- Active Separation: YES. Remind them that distance is temporary. Focus on patience, trust, connection, emotional resilience, understanding, and hope.
 """ if in_separation else """
-- Active Separation: NO. Focus on love, appreciation, gratitude, connection, emotional bonding, and relationship growth.
+- Active Separation: NO. Help them appreciate their partner. Focus on love, appreciation, gratitude, connection, emotional bonding, and relationship growth.
 """
     
-    prompt = f"""You are Bonded AI — deeply emotionally intelligent, warm, comforting, and inspiring.
-Generate exactly one short, powerful, elegant daily love quote or affirmation for a user named {user_name}.
+    prompt = f"""You are Bonded AI — a supportive third-person guide, relationship coach, and mentor. You are deeply emotionally intelligent, warm, and comforting.
+Generate exactly one short, powerful, elegant daily affirmation for a user named {user_name}.
 
 CONTEXT: {sep_context}
 
@@ -351,16 +351,17 @@ AVOID THESE RECENT AFFIRMATIONS (do not generate anything substantially similar)
 {json.dumps(recent_affirmations)}
 
 CRITICAL RULES:
-- The affirmation should focus on inspiration, emotional encouragement, and meaningful bonding.
-- Keep it short (1-2 sentences).
+- MUST act as a supportive third-person guide/coach. 
+- NEVER act like the partner. NEVER use first-person relationship language ("I", "my", "our", "I miss you", "My love", etc.).
+- Encourage love, patience, trust, communication, and emotional resilience.
+- Keep it short (1-2 sentences) and use warm, simple, beautiful language.
 - Do NOT generate generic motivational quotes (e.g. "seize the day").
-- Do NOT generate partner conversations or roleplay.
-- Do NOT generate advice (e.g. "you should try to...").
-- Feel profound and poetic, like a beautiful quote.
+- Feel profound and poetic, yet grounding and inspiring.
 
-Examples:
-- "Distance is not the absence of love; it is often where love learns patience."
-- "The quiet days matter too. Growth often happens in moments that feel invisible."
+Examples of correct tone:
+- "Distance is not a measure of love; it is often a test of patience, trust, and connection."
+- "The strongest relationships are built not only in togetherness, but also in how two hearts remain connected through distance."
+- "Love grows when it is supported by patience, understanding, and gentle communication."
 
 Return ONLY a JSON object with a single key "affirmation":
 {{
