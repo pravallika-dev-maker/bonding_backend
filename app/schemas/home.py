@@ -8,6 +8,7 @@ class HomeHeroResponse(BaseModel):
     total_duration_days: Optional[int] = None
     progress_percentage: Optional[float] = None
     comfort_message: Optional[str] = None
+    has_past_relationship: bool = False
 
     class Config:
         from_attributes = True

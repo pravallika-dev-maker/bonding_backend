@@ -37,11 +37,16 @@ async def get_home_hero(
             (Relationship.user1_id == current_user.id) | (Relationship.user2_id == current_user.id),
             Relationship.status == "active"
         ).first()
+        # Check for any past relationships
+        has_past = db.query(Relationship).filter(
+            (Relationship.user1_id == current_user.id) | (Relationship.user2_id == current_user.id)
+        ).first() is not None
 
         if not active_rel:
             return HomeHeroResponse(
                 partner_connected=False,
-                partner_name=current_user.partner_name
+                partner_name=current_user.partner_name,
+                has_past_relationship=has_past
             )
 
         # Resolve partner name
@@ -61,7 +66,8 @@ async def get_home_hero(
         if not active_sep:
             return HomeHeroResponse(
                 partner_connected=True,
-                partner_name=partner_name
+                partner_name=partner_name,
+                has_past_relationship=has_past
             )
 
         # Calculate days and progress
@@ -130,7 +136,8 @@ async def get_home_hero(
             current_day=current_day,
             total_duration_days=total_days,
             progress_percentage=round(progress_percentage, 2),
-            comfort_message=comfort_message
+            comfort_message=comfort_message,
+            has_past_relationship=has_past
         )
 
     except Exception as e:
