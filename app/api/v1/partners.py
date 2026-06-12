@@ -29,24 +29,34 @@ WORD_LIST = [
 @router.get("/invite-code", response_model=InviteCodeResponse)
 def get_invite_code(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
-        # 1. Delete any old unused codes for this user
+        # 1. Check if there's an existing valid invite code
+        existing_invite = db.query(InviteCode).filter(
+            InviteCode.creator_id == current_user.id,
+            InviteCode.is_used == False,
+            InviteCode.expires_at > datetime.now(timezone.utc)
+        ).first()
+
+        if existing_invite:
+            return InviteCodeResponse(code=existing_invite.code, expires_at=existing_invite.expires_at, success=True)
+            
+        # 2. Delete any old unused or expired codes for this user
         db.query(InviteCode).filter(InviteCode.creator_id == current_user.id, InviteCode.is_used == False).delete()
         
-        # 2. Pick a random word from list + random digit
+        # 3. Pick a random word from list + random digit
         code_str = f"{secrets.choice(WORD_LIST)}-{secrets.randbelow(9000) + 1000}"
         
         # Check uniqueness (extremely rare collision but good practice)
         while db.query(InviteCode).filter(InviteCode.code == code_str).first() is not None:
             code_str = f"{secrets.choice(WORD_LIST)}-{secrets.randbelow(9000) + 1000}"
             
-        # 3. Save to invite_codes table
+        # 4. Save to invite_codes table
         expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
         new_code = InviteCode(code=code_str, creator_id=current_user.id, expires_at=expires_at)
         db.add(new_code)
         db.commit()
         db.refresh(new_code)
         
-        # 4. Return the code + expires_at
+        # 5. Return the code + expires_at
         return InviteCodeResponse(code=new_code.code, expires_at=new_code.expires_at, success=True)
     except Exception as e:
         db.rollback()
