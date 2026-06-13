@@ -71,10 +71,21 @@ async def get_home_hero(
             )
 
         # Calculate days and progress
-        current_day = (date.today() - active_sep.start_date).days + 1
-        if current_day < 1:
-            current_day = 1
+        from sqlalchemy import cast, Date
+        from ...models.reflection_session import ReflectionSession
+
+        completed_reflections = db.query(ReflectionSession).filter(
+            ReflectionSession.user_id == current_user.id,
+            ReflectionSession.separation_id == active_sep.id,
+            ReflectionSession.is_completed == True,
+        ).count()
+
+        active_day = completed_reflections + 1
+        calendar_day = (date.today() - active_sep.start_date).days + 1
+        if calendar_day < 1:
+            calendar_day = 1
             
+        current_day = active_day
         total_days = (active_sep.expected_end_date - active_sep.start_date).days
         if total_days <= 0:
             total_days = 1 # Avoid division by zero
@@ -118,17 +129,29 @@ async def get_home_hero(
                 logger.error(f"Gemini comfort_message generation failed: {e}")
 
             # Persist so every subsequent call today returns the same quote
+            new_comfort = UserDailyComfort(
+                user_id=current_user.id,
+                comfort_date=today,
+                text=comfort_message
+            )
+            db.add(new_comfort)
             try:
-                new_comfort = UserDailyComfort(
-                    user_id=current_user.id,
-                    comfort_date=today,
-                    text=comfort_message
-                )
-                db.add(new_comfort)
                 db.commit()
-            except Exception as e:
-                logger.error(f"Failed to persist comfort message: {e}")
+            except Exception:
                 db.rollback()
+
+        # Override comfort_message based on Gentle Sequential Progression rules
+        completed_today = db.query(ReflectionSession).filter(
+            ReflectionSession.user_id == current_user.id,
+            ReflectionSession.separation_id == active_sep.id,
+            ReflectionSession.is_completed == True,
+            cast(ReflectionSession.completed_at, Date) == today
+        ).first() is not None
+
+        if completed_today:
+            comfort_message = f"Beautiful reflection ❤️ Day {active_day} is now ready whenever you are."
+        elif active_day < calendar_day:
+            comfort_message = f"Looks like Day {active_day} is still waiting for you ❤️ No worries. Let's continue from where you left off. Every reflection helps us understand your journey a little better."
 
         return HomeHeroResponse(
             partner_connected=True,

@@ -60,9 +60,13 @@ def _get_active_separation(user: User, db: Session) -> Separation:
 
 # ── Helper: compute today's day_number from separation start ─────────────────
 
-def _day_number(sep: Separation) -> int:
-    elapsed = (date.today() - sep.start_date).days
-    day = max(1, elapsed + 1)  # Ensure day is at least 1, even with timezone shifts
+def _day_number(user_id: int, sep: Separation, db: Session) -> int:
+    completed_reflections = db.query(ReflectionSession).filter(
+        ReflectionSession.user_id == user_id,
+        ReflectionSession.separation_id == sep.id,
+        ReflectionSession.is_completed == True,
+    ).count()
+    day = completed_reflections + 1
     return min(day, 55)        # Cap at 55
 
 
@@ -101,7 +105,7 @@ async def get_today_question(
     session for the current user.
     """
     sep = _get_active_separation(current_user, db)
-    day = _day_number(sep)
+    day = _day_number(current_user.id, sep, db)
 
     question = db.query(ReflectionQuestion).filter(
         ReflectionQuestion.day_number == day,
@@ -231,7 +235,7 @@ async def get_today_status(
     plus total completed day counts for both. Used by the home screen.
     """
     sep = _get_active_separation(current_user, db)
-    day = _day_number(sep)
+    day = _day_number(current_user.id, sep, db)
 
     # Today's completion status for current user
     user_session = db.query(ReflectionSession).filter(
