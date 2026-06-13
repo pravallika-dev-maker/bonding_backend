@@ -13,6 +13,7 @@ class MoodResponse(BaseSchema):
     created_at: datetime
     ai_quote: Optional[str] = None     # Gemini-generated emotional quote
     ai_advice: Optional[str] = None    # Gemini-generated personalized advice
+    partner_name: Optional[str] = None
 
     class Config:
         from_attributes = True

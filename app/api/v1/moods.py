@@ -74,6 +74,7 @@ async def create_mood(
             reflection=mood_data.reflection,
             ai_quote=ai_result.get("quote"),
             ai_advice=ai_result.get("advice"),
+            partner_name=current_user.partner_name,
         )
         db.add(new_mood)
         db.commit()
@@ -96,6 +97,7 @@ async def create_mood(
             "created_at": new_mood.created_at,
             "ai_quote": new_mood.ai_quote,
             "ai_advice": new_mood.ai_advice,
+            "partner_name": new_mood.partner_name,
         }
     except Exception as e:
         db.rollback()
@@ -119,6 +121,7 @@ async def get_my_moods(
             "created_at": m.created_at,
             "ai_quote": m.ai_quote,
             "ai_advice": m.ai_advice,
+            "partner_name": m.partner_name,
         }
         for m in moods
     ]
@@ -148,7 +151,8 @@ async def get_mood_history(
             "date": date_str,
             "mood": m.mood.lower(),
             "emoji": emoji,
-            "note": m.reflection
+            "note": m.reflection,
+            "partner_name": m.partner_name
         })
         
     return history

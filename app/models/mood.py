@@ -11,4 +11,5 @@ class Mood(Base):
     reflection = Column(Text, nullable=True)
     ai_quote = Column(Text, nullable=True)   # Gemini-generated emotional quote
     ai_advice = Column(Text, nullable=True)  # Gemini-generated personalized advice
+    partner_name = Column(String, nullable=True) # Stores the partner name at the time of logging
     created_at = Column(DateTime(timezone=True), server_default=func.now())
