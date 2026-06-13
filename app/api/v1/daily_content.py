@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from ...database import get_db
 from ...schemas.daily_content import DailyAffirmationResponse, DailyInsightResponse
@@ -54,6 +54,7 @@ async def get_daily_affirmation(
 
 @router.get("/insight", response_model=DailyInsightResponse)
 async def get_daily_insight(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -67,14 +68,43 @@ async def get_daily_insight(
                 lock_reason="Connect with a partner to begin your reflection journey and unlock daily insights."
             )
 
-        # 2. Check Unlock Condition (Mood logged today)
-        today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+        # 2. Check Unlock Condition (Mood logged today based on user's timezone)
+        tz_offset_str = request.headers.get("X-Timezone-Offset")
+        now_utc = datetime.now(timezone.utc)
+        
+        try:
+            if tz_offset_str:
+                from datetime import timedelta
+                offset_minutes = int(tz_offset_str)
+                # Apply the offset to get the user's local time
+                client_tz = timezone(timedelta(minutes=offset_minutes))
+                now_client = now_utc.astimezone(client_tz)
+                print(f"DEBUG - current server datetime: {datetime.now()}")
+                print(f"DEBUG - current server date: {date.today()}")
+                
+                # Midnight in client's local time, converted to UTC bounds for the database
+                today_start_client = datetime(now_client.year, now_client.month, now_client.day, tzinfo=client_tz)
+                today_start = today_start_client.astimezone(timezone.utc)
+            else:
+                today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        except Exception as e:
+            logger.error(f"Error parsing timezone offset: {e}")
+            today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
         
         mood_today = db.query(Mood).filter(
             Mood.user_id == current_user.id,
             Mood.created_at >= today_start
         ).first()
         
+        if mood_today:
+            print(f"DEBUG - mood created_at: {mood_today.created_at}")
+            print(f"DEBUG - mood UTC date: {mood_today.created_at.astimezone(timezone.utc)}")
+            print(f"DEBUG - unlock decision: UNLOCKED")
+            print(f"DEBUG - is_locked value: False")
+        else:
+            print(f"DEBUG - unlock decision: LOCKED")
+            print(f"DEBUG - is_locked value: True")
+
         if not mood_today:
             return DailyInsightResponse(
                 date=date.today(),
