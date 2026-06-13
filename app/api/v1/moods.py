@@ -122,3 +122,33 @@ async def get_my_moods(
         }
         for m in moods
     ]
+
+@router.get("/history")
+async def get_mood_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    moods = db.query(Mood).filter(Mood.user_id == current_user.id).order_by(Mood.created_at.desc()).all()
+    
+    emoji_map = {
+        "longing": "❤️",
+        "peaceful": "😌",
+        "reflective": "💭",
+        "growing": "🌱"
+    }
+    
+    history = []
+    for m in moods:
+        if not m.created_at:
+            continue
+        date_str = m.created_at.strftime("%Y-%m-%d")
+        emoji = emoji_map.get(m.mood.lower(), "💭")
+        
+        history.append({
+            "date": date_str,
+            "mood": m.mood.lower(),
+            "emoji": emoji,
+            "note": m.reflection
+        })
+        
+    return history
