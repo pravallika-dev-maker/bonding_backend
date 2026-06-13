@@ -71,7 +71,6 @@ async def get_home_hero(
             )
 
         # Calculate days and progress
-        from sqlalchemy import cast, Date
         from ...models.reflection_session import ReflectionSession
 
         completed_reflections = db.query(ReflectionSession).filter(
@@ -140,18 +139,11 @@ async def get_home_hero(
             except Exception:
                 db.rollback()
 
-        # Override comfort_message based on Gentle Sequential Progression rules
-        completed_today = db.query(ReflectionSession).filter(
-            ReflectionSession.user_id == current_user.id,
-            ReflectionSession.separation_id == active_sep.id,
-            ReflectionSession.is_completed == True,
-            cast(ReflectionSession.completed_at, Date) == today
-        ).first() is not None
-
-        if completed_today:
-            comfort_message = f"Beautiful reflection ❤️ Day {active_day} is now ready whenever you are."
-        elif active_day < calendar_day:
-            comfort_message = f"Looks like Day {active_day} is still waiting for you ❤️ No worries. Let's continue from where you left off. Every reflection helps us understand your journey a little better."
+        # Determine if user is in missed-day flow:
+        # Only TRUE when the user's active journey day is behind the calendar day.
+        # Normal progression (Day 1 done → now on Day 2 = calendar Day 2) → FALSE
+        # Missed days (Day 1, 2 done → active Day 3, but calendar is Day 5) → TRUE
+        is_missed_day_flow = active_day < calendar_day
 
         return HomeHeroResponse(
             partner_connected=True,
@@ -160,7 +152,8 @@ async def get_home_hero(
             total_duration_days=total_days,
             progress_percentage=round(progress_percentage, 2),
             comfort_message=comfort_message,
-            has_past_relationship=has_past
+            has_past_relationship=has_past,
+            is_missed_day_flow=is_missed_day_flow
         )
 
     except Exception as e:
