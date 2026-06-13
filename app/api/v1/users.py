@@ -63,8 +63,8 @@ async def get_my_profile(
             "partnerName": partner_name,
             "relationType": relation_type,
             "relationshipDate": relationship_date.isoformat() if relationship_date else None,
-            # Only return a live score when connected; null otherwise to avoid stale data
             "relationshipScore": current_user.relationship_score if is_connected else None,
+            "notificationsEnabled": current_user.notifications_enabled,
             "activeRelationship": active_rel_data
         }
     }
@@ -85,6 +85,8 @@ async def update_profile(
         current_user.partner_name = profile_data.partnerName
     if profile_data.gender is not None:
         current_user.gender = profile_data.gender
+    if profile_data.notificationsEnabled is not None:
+        current_user.notifications_enabled = profile_data.notificationsEnabled
     
     if profile_data.relationshipDate is not None:
         try:

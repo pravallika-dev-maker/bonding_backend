@@ -8,6 +8,7 @@ class UserProfileUpdate(BaseSchema):
     relationshipDate: Optional[str] = None # ISO format string
     dob: Optional[str] = None # ISO format string
     gender: Optional[str] = None
+    notificationsEnabled: Optional[bool] = None
 
 class FCMTokenUpdate(BaseSchema):
     fcmToken: str

@@ -23,4 +23,5 @@ class User(Base):
     gender = Column(String, nullable=True)
     relationship_score = Column(Integer, default=0)
     fcm_token = Column(String, nullable=True)
+    notifications_enabled = Column(Boolean, default=True)
 
