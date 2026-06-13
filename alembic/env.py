@@ -14,7 +14,8 @@ from app.database import Base
 from app.models import (
     user, mood, invite_code, separation, notification,
     question_category, reflection_question, reflection_session,
-    reflection_answer, reflection_comparison, letter, daily_affirmation,
+    reflection_answer, reflection_comparison, letter,
+    user_daily_affirmation, user_daily_insight, user_daily_comfort,
     relationship
 )
 

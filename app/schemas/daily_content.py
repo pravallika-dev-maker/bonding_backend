@@ -14,6 +14,12 @@ class DailyInsightResponse(BaseModel):
     insight: Optional[str] = None
     is_locked: bool = False
     lock_reason: Optional[str] = None
+    is_viewed: bool = False
 
     class Config:
         from_attributes = True
+
+class MarkInsightViewedResponse(BaseModel):
+    success: bool
+    message: str
+

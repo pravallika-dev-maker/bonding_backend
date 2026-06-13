@@ -3,8 +3,9 @@ from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from ...database import get_db
-from ...schemas.daily_content import DailyAffirmationResponse, DailyInsightResponse
+from ...schemas.daily_content import DailyAffirmationResponse, DailyInsightResponse, MarkInsightViewedResponse
 from ...services.daily_content_service import get_or_create_daily_affirmation, get_or_create_daily_insight
+from ...models.user_daily_insight import UserDailyInsight
 from ..deps import get_current_user
 from ...models.user import User
 from ...models.separation import Separation
@@ -65,6 +66,7 @@ async def get_daily_insight(
                 date=date.today(),
                 insight=None,
                 is_locked=True,
+                is_viewed=False,
                 lock_reason="Connect with a partner to begin your reflection journey and unlock daily insights."
             )
 
@@ -110,6 +112,7 @@ async def get_daily_insight(
                 date=date.today(),
                 insight=None,
                 is_locked=True,
+                is_viewed=False,
                 lock_reason="Complete today's mood check-in to unlock your daily relationship insight."
             )
 
@@ -144,13 +147,50 @@ async def get_daily_insight(
             reflection_history=reflection_list
         )
 
+        # 4. Check if already viewed
+        today_insight_row = db.query(UserDailyInsight).filter(
+            UserDailyInsight.user_id == current_user.id,
+            UserDailyInsight.insight_date == date.today()
+        ).first()
+        is_viewed = bool(today_insight_row and today_insight_row.is_viewed)
+
         return DailyInsightResponse(
             date=date.today(),
             insight=insight_text,
             is_locked=False,
-            lock_reason=None
+            lock_reason=None,
+            is_viewed=is_viewed
         )
 
     except Exception as e:
         logger.error(f"Error fetching daily insight: {e}")
         raise HTTPException(status_code=500, detail="Could not fetch daily insight")
+
+
+@router.post("/insight/mark-viewed", response_model=MarkInsightViewedResponse)
+async def mark_insight_viewed(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mark today's insight as viewed. Idempotent — safe to call multiple times."""
+    try:
+        today = date.today()
+        row = db.query(UserDailyInsight).filter(
+            UserDailyInsight.user_id == current_user.id,
+            UserDailyInsight.insight_date == today
+        ).first()
+
+        if not row:
+            return MarkInsightViewedResponse(success=False, message="No insight found for today.")
+
+        if not row.is_viewed:
+            row.is_viewed = True
+            row.viewed_at = datetime.now(timezone.utc)
+            db.commit()
+
+        return MarkInsightViewedResponse(success=True, message="Insight marked as viewed.")
+
+    except Exception as e:
+        logger.error(f"Error marking insight as viewed: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not mark insight as viewed")
