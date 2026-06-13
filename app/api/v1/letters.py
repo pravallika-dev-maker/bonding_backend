@@ -113,19 +113,7 @@ async def create_letter(
     db.commit()
     db.refresh(new_letter)
 
-    # Trigger 5: Partner writes a letter -> You get notified
-    if current_user.partner_id:
-        partner = db.query(User).filter(User.id == current_user.partner_id).first()
-        if partner:
-            partner_name = current_user.user_name or "Your partner"
-            create_notification_and_push(
-                db=db,
-                recipient_id=partner.id,
-                notification_type="letter_written",
-                title="💌 A letter arrived",
-                body=f"{partner_name} wrote you something. It reveals when the time is right.",
-                fcm_token=partner.fcm_token
-            )
+
 
     return new_letter
 
@@ -143,84 +131,6 @@ def get_user_letters(
     ).order_by(Letter.created_at.desc()).all()
     return letters
 
-@router.get("/partner/revealed", response_model=List[PartnerLetterScreenResponse])
-def get_revealed_partner_letters(
-    db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user),
-    active_rel = Depends(get_active_relationship)
-):
-    """
-    Returns structured letters written by the partner for the 4 swipeable reveal screens.
-    Triggered on the last day of the separation or later.
-    """
-    screens = [
-        {"screen": 1, "day": 3, "prompt_title": "Day 3 – When they missed you 💭", "action_label": "Show message", "letter": None},
-        {"screen": 2, "day": 4, "prompt_title": "Day 4 – What hurt them 💔", "action_label": "Show message", "letter": None},
-        {"screen": 3, "day": 5, "prompt_title": "Day 5 – What they love about you ❤️", "action_label": "Show message", "letter": None},
-        {"screen": 4, "day": 6, "prompt_title": "Day 6 – What they want to change for you.", "action_label": "Show message", "letter": None},
-    ]
-
-    if not current_user.partner_id or not active_rel:
-        return screens
-
-    # 1. Check for active or recently completed separation
-    sep = db.query(Separation).filter(
-        (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
-        Separation.status == "active"
-    ).first()
-
-    if not sep:
-        sep = db.query(Separation).filter(
-            (Separation.creator_id == current_user.id) | (Separation.partner_id == current_user.id),
-            Separation.status == "completed"
-        ).order_by(Separation.ended_at.desc()).first()
-
-    if sep:
-        # If the separation is active, check if it's the last day (expected_end_date reached/passed)
-        if sep.status == "active":
-            days_remaining = (sep.expected_end_date - date.today()).days
-            
-            # Reveal only on the final day (0 days remaining) or past it.
-            if days_remaining <= 0:
-                hidden_love_letters = db.query(Letter).filter(
-                    Letter.author_id == current_user.partner_id,
-                    Letter.relationship_id == active_rel.id,
-                    Letter.ai_love_score >= 40,  # Safeguard: only letters that are not toxic/blaming (>=40)
-                    Letter.is_revealed == False
-                ).all()
-
-                if hidden_love_letters:
-                    for letter in hidden_love_letters:
-                        letter.is_revealed = True
-                    db.commit()
-                    
-                    create_notification_and_push(
-                        db, 
-                        recipient_id=current_user.id, 
-                        notification_type="letters_revealed",
-                        title="📖 Letters are now revealed",
-                        body="There's something your partner couldn't say before.",
-                        fcm_token=current_user.fcm_token
-                    )
-
-
-        # 2. Get all currently revealed letters from the partner
-        revealed_letters = db.query(Letter).filter(
-            Letter.author_id == current_user.partner_id,
-            Letter.relationship_id == active_rel.id,
-            Letter.is_revealed == True
-        ).order_by(Letter.created_at.desc()).all()
-
-        # 3. Map letters to screens
-        for letter in revealed_letters:
-            screen_idx = map_letter_to_screen(letter, sep.start_date)
-            if screen_idx is not None and 1 <= screen_idx <= 4:
-                # If no letter mapped yet, or this one has a higher love score, map it
-                existing = screens[screen_idx - 1]["letter"]
-                if not existing or letter.ai_love_score > existing.ai_love_score:
-                    screens[screen_idx - 1]["letter"] = letter
-
-    return screens
 
 
 
